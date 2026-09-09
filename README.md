@@ -113,4 +113,4 @@ Projeto em desenvolvimento ativo. A estrutura principal de estudo, persistência
 
 ## Licença
 
-Este projeto ainda não possui uma licença definida.
+Este projeto está disponível sob a [Licença MIT](LICENSE).
