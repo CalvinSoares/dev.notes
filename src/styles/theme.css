@@ -1,0 +1,128 @@
+:root {
+  /* Color foundation — the only literal color values in the application. */
+  --rgb-canvas: 253 251 247;
+  --rgb-surface: 255 255 255;
+  --rgb-paper-aged: 238 233 224;
+  --rgb-paper-line: 222 216 206;
+  --rgb-sidebar: 243 238 229;
+  --rgb-ink: 45 45 45;
+  --rgb-ink-muted: 98 93 86;
+  --rgb-ink-subtle: 117 111 102;
+  --rgb-accent: 217 56 56;
+  --rgb-accent-soft: 253 228 225;
+  --rgb-secondary: 36 83 154;
+  --rgb-secondary-soft: 231 238 249;
+  --rgb-highlight: 255 243 166;
+  --rgb-highlight-ink: 111 77 0;
+  --rgb-danger: 180 35 35;
+  --rgb-code-canvas: 255 253 248;
+  --rgb-code-line: 244 240 232;
+  --rgb-code-selection: 255 241 168;
+  --rgb-code-gutter: 154 147 136;
+
+  --color-canvas: rgb(var(--rgb-canvas));
+  --color-surface: rgb(var(--rgb-surface));
+  --color-paper-aged: rgb(var(--rgb-paper-aged));
+  --color-paper-line: rgb(var(--rgb-paper-line));
+  --color-sidebar: rgb(var(--rgb-sidebar));
+  --color-ink: rgb(var(--rgb-ink));
+  --color-ink-muted: rgb(var(--rgb-ink-muted));
+  --color-ink-subtle: rgb(var(--rgb-ink-subtle));
+  --color-accent: rgb(var(--rgb-accent));
+  --color-accent-soft: rgb(var(--rgb-accent-soft));
+  --color-secondary: rgb(var(--rgb-secondary));
+  --color-secondary-soft: rgb(var(--rgb-secondary-soft));
+  --color-highlight: rgb(var(--rgb-highlight));
+  --color-highlight-ink: rgb(var(--rgb-highlight-ink));
+  --color-danger: rgb(var(--rgb-danger));
+  --color-code-canvas: rgb(var(--rgb-code-canvas));
+  --color-code-line: rgb(var(--rgb-code-line));
+  --color-code-selection: rgb(var(--rgb-code-selection));
+  --color-code-gutter: rgb(var(--rgb-code-gutter));
+
+  /* Semantic surfaces and text. */
+  --surface-app: var(--color-canvas);
+  --surface-panel: var(--color-surface);
+  --surface-subtle: var(--color-paper-aged);
+  --surface-hover: var(--color-highlight);
+  --surface-sidebar: var(--color-sidebar);
+  --text-primary: var(--color-ink);
+  --text-secondary: var(--color-ink-muted);
+  --text-tertiary: var(--color-ink-subtle);
+  --border-primary: var(--color-ink);
+  --border-subtle: var(--color-paper-line);
+  --action-primary: var(--color-accent);
+  --action-secondary: var(--color-secondary);
+  --feedback-warning: var(--color-highlight-ink);
+  --feedback-danger: var(--color-danger);
+
+  /* Composited effects remain tokenized and reusable. */
+  --surface-glass: color-mix(in srgb, var(--color-canvas) 94%, transparent);
+  --surface-panel-glass: color-mix(in srgb, var(--color-surface) 82%, transparent);
+  --surface-highlight-soft: color-mix(in srgb, var(--color-highlight) 62%, transparent);
+  --overlay: color-mix(in srgb, var(--color-ink) 30%, transparent);
+  --accent-wash: color-mix(in srgb, var(--color-accent) 11%, transparent);
+  --secondary-wash: color-mix(in srgb, var(--color-secondary) 10%, transparent);
+  --line-faint: color-mix(in srgb, var(--color-ink) 18%, transparent);
+  --line-soft: color-mix(in srgb, var(--color-ink) 34%, transparent);
+  --shadow-faint: color-mix(in srgb, var(--color-ink) 10%, transparent);
+  --shadow-soft: color-mix(in srgb, var(--color-ink) 16%, transparent);
+  --tape-fill: color-mix(in srgb, var(--color-surface) 64%, transparent);
+  --tape-edge: color-mix(in srgb, var(--color-ink) 18%, transparent);
+
+  /* Legacy aliases keep the component API stable while colors stay semantic. */
+  --retro-bg: var(--surface-app);
+  --retro-bg-dark: var(--surface-panel);
+  --retro-bg-darker: var(--surface-subtle);
+  --retro-panel: var(--surface-panel);
+  --retro-panel-hover: var(--surface-hover);
+  --retro-border: var(--border-primary);
+  --retro-text: var(--text-primary);
+  --retro-text-dim: var(--text-secondary);
+  --retro-comment: var(--text-tertiary);
+  --retro-green: var(--action-secondary);
+  --retro-orange: var(--action-primary);
+  --retro-blue: var(--action-secondary);
+  --retro-pink: var(--action-primary);
+  --retro-purple: var(--action-secondary);
+  --retro-yellow: var(--feedback-warning);
+  --retro-red: var(--feedback-danger);
+
+  /* Shape, depth and layout tokens. */
+  --radius-wobbly: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  --radius-wobbly-md: 18px 255px 22px 210px / 230px 18px 240px 24px;
+  --shadow-paper-sm: 2px 2px 0 var(--border-primary);
+  --shadow-paper: 4px 4px 0 var(--border-primary);
+  --shadow-paper-lg: 8px 8px 0 var(--border-primary);
+  --sidebar-width: 248px;
+  --statusbar-height: 34px;
+  --tabbar-height: 54px;
+  --toolbar-height: 30px;
+}
+
+[data-theme='dark'] {
+  --rgb-canvas: 29 31 29;
+  --rgb-surface: 39 42 38;
+  --rgb-paper-aged: 32 35 31;
+  --rgb-paper-line: 73 77 69;
+  --rgb-sidebar: 35 38 34;
+  --rgb-ink: 245 240 231;
+  --rgb-ink-muted: 206 200 189;
+  --rgb-ink-subtle: 174 168 157;
+  --rgb-accent: 255 107 97;
+  --rgb-accent-soft: 82 46 43;
+  --rgb-secondary: 122 183 255;
+  --rgb-secondary-soft: 32 61 94;
+  --rgb-highlight: 75 64 34;
+  --rgb-highlight-ink: 255 225 148;
+  --rgb-danger: 255 130 120;
+  --rgb-code-canvas: 27 30 27;
+  --rgb-code-line: 43 47 42;
+  --rgb-code-selection: 75 64 34;
+  --rgb-code-gutter: 165 161 151;
+}
+
+*::selection {
+  background: var(--accent-wash);
+  color: var(--text-primary);
+}
