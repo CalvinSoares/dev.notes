@@ -1,4 +1,4 @@
-# Enterview
+# Dev.notes
 
 Uma plataforma desktop para organizar e revisar estudos de programação em um só lugar.
 
