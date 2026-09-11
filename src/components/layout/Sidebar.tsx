@@ -3,6 +3,7 @@ import {
   Code2,
   Layers,
   GitBranch,
+  ClipboardCheck,
   X,
   PencilLine,
   Sparkles,
@@ -28,6 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'nav-lc', pageId: 'leetcode', label: 'Desafios', note: 'leetcode', icon: Code2 },
   { id: 'nav-fc', pageId: 'flashcards', label: 'Flashcards', note: 'memória ativa', icon: Layers },
   { id: 'nav-diagrams', pageId: 'diagrams', label: 'Fluxogramas', note: 'pensamento visual', icon: GitBranch },
+  { id: 'nav-quizzes', pageId: 'quizzes', label: 'Simulados', note: 'provas e questões', icon: ClipboardCheck },
 ];
 
 export function Sidebar() {

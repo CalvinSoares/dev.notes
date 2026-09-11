@@ -30,6 +30,7 @@ const PAGE_META: Record<PageId, { title: string; iconName: string }> = {
   articles: { title: 'articles.notes', iconName: 'FileText' },
   snippets: { title: 'snippets.lib', iconName: 'FileCode' },
   diagrams: { title: 'diagrams.flow', iconName: 'GitBranch' },
+  quizzes: { title: 'simulados.provas', iconName: 'ClipboardCheck' },
 };
 
 export const useAppStore = create<AppState>((set, get) => ({
