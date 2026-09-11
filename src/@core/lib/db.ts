@@ -1,5 +1,5 @@
 import Dexie, { type Table } from "dexie";
-import type { Flashcard, LeetCodeProblem, Article, Snippet, StudyPhase, StudyDiagram } from "@core/types";
+import type { Flashcard, LeetCodeProblem, Article, Snippet, StudyPhase, StudyDiagram, QuizAttempt, QuizQuestion, QuizExam } from "@core/types";
 import { subDays, addDays } from "date-fns";
 
 export interface RetroDBSchema {
@@ -8,6 +8,9 @@ export interface RetroDBSchema {
   articles: Article;
   snippets: Snippet;
   diagrams: StudyDiagram;
+  quiz_exams: QuizExam;
+  quiz_questions: QuizQuestion;
+  quiz_attempts: QuizAttempt;
 }
 
 const iso = (d: Date) => d.toISOString();
@@ -447,6 +450,9 @@ class RetroCodeDexie extends Dexie {
   snippets!: Table<Snippet, string>;
   study_phases!: Table<StudyPhase, string>;
   diagrams!: Table<StudyDiagram, string>;
+  quiz_exams!: Table<QuizExam, string>;
+  quiz_questions!: Table<QuizQuestion, string>;
+  quiz_attempts!: Table<QuizAttempt, string>;
 
   constructor() {
     super("retrocode-study-db");
@@ -477,6 +483,26 @@ class RetroCodeDexie extends Dexie {
       snippets: "id, language, createdAt",
       study_phases: "id, updatedAt",
       diagrams: "id, updatedAt",
+    });    this.version(5).stores({
+      flashcards: "id, nextReviewAt, repetitions, interval",
+      leetcode_problems: "id, problemId, difficulty, nextReviewAt",
+      articles: "id, nextReviewAt",
+      snippets: "id, language, createdAt",
+      study_phases: "id, updatedAt",
+      diagrams: "id, updatedAt",
+      quiz_questions: "id, examName, subject, topic, updatedAt",
+      quiz_attempts: "id, startedAt, finishedAt",
+    });
+    this.version(6).stores({
+      flashcards: "id, nextReviewAt, repetitions, interval",
+      leetcode_problems: "id, problemId, difficulty, nextReviewAt",
+      articles: "id, nextReviewAt",
+      snippets: "id, language, createdAt",
+      study_phases: "id, updatedAt",
+      diagrams: "id, updatedAt",
+      quiz_exams: "id, contestName, vacancy, updatedAt",
+      quiz_questions: "id, examId, examName, subject, topic, updatedAt",
+      quiz_attempts: "id, startedAt, finishedAt",
     });
   }
 }
