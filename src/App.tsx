@@ -3,23 +3,19 @@ import { RetroLayout } from '@/components/layout/RetroLayout';
 import { useAppStore } from '@/store/useAppStore';
 import { useFlashcardStore } from '@/store/useFlashcardStore';
 import { useLeetCodeStore } from '@/store/useLeetCodeStore';
-import { useContentStore } from '@/store/useContentStore';
 import { useStudyPhaseStore } from '@/store/useStudyPhaseStore';
 import { useDiagramStore } from '@/store/useDiagramStore';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { LeetCodePage } from '@/pages/LeetCodePage';
 import { FlashcardsPage } from '@/pages/FlashcardsPage';
-import { ContentPage } from '@/pages/ContentPage';
 import { FileQuestion, PencilLine, Sparkles } from 'lucide-react';
 import { DiagramsPage } from '@/pages/DiagramsPage';
 import type { PageId } from '@core/types';
 
-const PAGE_REGISTRY: Record<PageId, () => JSX.Element> = {
+const PAGE_REGISTRY: Partial<Record<PageId, () => JSX.Element>> = {
   dashboard: DashboardPage,
   leetcode: LeetCodePage,
   flashcards: FlashcardsPage,
-  articles: ContentPage,
-  snippets: ContentPage,
   diagrams: DiagramsPage,
 };
 
@@ -76,7 +72,6 @@ export function App() {
   const [step, setStep] = useState('mounting app shell...');
   const fcInit = useFlashcardStore((s) => s.initialize);
   const lcInit = useLeetCodeStore((s) => s.initialize);
-  const ctInit = useContentStore((s) => s.initialize);
   const phaseInit = useStudyPhaseStore((s) => s.initialize);
   const diagramInit = useDiagramStore((s) => s.initialize);
 
@@ -91,9 +86,6 @@ export function App() {
       setStep('hydrating useLeetCodeStore()');
       await lcInit();
       if (cancelled) return;
-      setStep('hydrating useContentStore()');
-      await ctInit();
-      if (cancelled) return;
       setStep('organizando fases de estudo');
       await phaseInit();
       if (cancelled) return;
@@ -107,7 +99,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [fcInit, lcInit, ctInit, phaseInit, diagramInit]);
+  }, [fcInit, lcInit, phaseInit, diagramInit]);
 
   if (booting) return <BootSplash step={step} />;
   return <RetroLayout content={<ActivePage />} />;

@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    enterview_lib::run();
+    dev_notes_lib::run();
 }

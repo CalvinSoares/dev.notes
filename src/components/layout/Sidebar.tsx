@@ -2,8 +2,6 @@ import {
   LayoutDashboard,
   Code2,
   Layers,
-  FileText,
-  FileCode,
   GitBranch,
   X,
   PencilLine,
@@ -15,7 +13,6 @@ import {
 import { useAppStore } from '@/store/useAppStore';
 import { useFlashcardStore } from '@/store/useFlashcardStore';
 import { useLeetCodeStore } from '@/store/useLeetCodeStore';
-import { useContentStore } from '@/store/useContentStore';
 import type { PageId } from '@core/types';
 
 interface NavItem {
@@ -30,8 +27,6 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'nav-dashboard', pageId: 'dashboard', label: 'Meu mural', note: 'visão do dia', icon: LayoutDashboard },
   { id: 'nav-lc', pageId: 'leetcode', label: 'Desafios', note: 'leetcode', icon: Code2 },
   { id: 'nav-fc', pageId: 'flashcards', label: 'Flashcards', note: 'memória ativa', icon: Layers },
-  { id: 'nav-art', pageId: 'articles', label: 'Leituras', note: 'artigos & notas', icon: FileText },
-  { id: 'nav-sn', pageId: 'snippets', label: 'Rabiscos', note: 'snippets úteis', icon: FileCode },
   { id: 'nav-diagrams', pageId: 'diagrams', label: 'Fluxogramas', note: 'pensamento visual', icon: GitBranch },
 ];
 
@@ -40,9 +35,8 @@ export function Sidebar() {
   const activePageId = tabs.find((tab) => tab.id === activeTabId)?.pageId;
   const dueFc = useFlashcardStore((state) => state.getDueCards().length);
   const dueLc = useLeetCodeStore((state) => state.getDueProblems().length);
-  const dueArt = useContentStore((state) => state.getDueArticles().length);
-  const totalByNav: Record<string, number> = { 'nav-lc': dueLc, 'nav-fc': dueFc, 'nav-art': dueArt };
-  const total = dueFc + dueLc + dueArt;
+  const totalByNav: Record<string, number> = { 'nav-lc': dueLc, 'nav-fc': dueFc };
+  const total = dueFc + dueLc;
 
   return (
     <>

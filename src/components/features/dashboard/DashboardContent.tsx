@@ -5,44 +5,36 @@ import { ReviewCounter } from "./ReviewCounter";
 import { DailyReviewCard } from "./DailyReviewCard";
 import { useFlashcardStore } from "@/store/useFlashcardStore";
 import { useLeetCodeStore } from "@/store/useLeetCodeStore";
-import { useContentStore } from "@/store/useContentStore";
 import { RetroCard } from "@/components/ui/RetroCard";
 import { RetroBadge } from "@/components/ui/RetroBadge";
 import {
   Flame,
   Target,
   TrendingUp,
-  Coffee,
   PencilLine,
   CalendarDays,
   CheckCircle2,
   Circle,
 } from "lucide-react";
-import type { LeetCodeProblem, Flashcard, Article } from "@core/types";
+import type { LeetCodeProblem, Flashcard } from "@core/types";
 
 export function DashboardContent() {
   const dueFC = useFlashcardStore((s) => s.getDueCards());
   const rating = useFlashcardStore((s) => s.getDueCountByRating());
   const dueLC = useLeetCodeStore((s) => s.getDueProblems());
   const allLC = useLeetCodeStore((s) => s.problems);
-  const dueART = useContentStore((s) => s.getDueArticles());
-  const allART = useContentStore((s) => s.articles);
-  const allSN = useContentStore((s) => s.snippets);
-
-  const total = dueFC.length + dueLC.length + dueART.length;
+  const total = dueFC.length + dueLC.length;
 
   const todayItems = useMemo(() => {
     const arr: (
       | (LeetCodeProblem & { __kind: "leetcode" })
       | (Flashcard & { __kind: "flashcard" })
-      | (Article & { __kind: "article" })
     )[] = [];
     dueLC.forEach((p) => arr.push({ ...p, __kind: "leetcode" }));
     dueFC.forEach((c) => arr.push({ ...c, __kind: "flashcard" }));
-    dueART.forEach((a) => arr.push({ ...a, __kind: "article" }));
     arr.sort((a, b) => +new Date(a.nextReviewAt) - +new Date(b.nextReviewAt));
     return arr;
-  }, [dueLC, dueFC, dueART]);
+  }, [dueLC, dueFC]);
 
   const streak = 7;
   const today = new Date();
@@ -148,11 +140,11 @@ export function DashboardContent() {
       </section>
 
       {/* Counter Grid */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         <ReviewCounter
           kind="overview"
           title="Para hoje"
-          subtitle="Flashcards, desafios e artigos pendentes."
+          subtitle="Flashcards e desafios pendentes."
           count={total}
           tone="green"
           accent="green"
@@ -160,7 +152,6 @@ export function DashboardContent() {
           subCounts={[
             { label: "LC", value: dueLC.length, tone: "orange" },
             { label: "FC", value: dueFC.length, tone: "blue" },
-            { label: "ART", value: dueART.length, tone: "purple" },
           ]}
           goal={`meta diária: ${Math.max(5, total)} revisões`}
         />
@@ -201,18 +192,6 @@ export function DashboardContent() {
             { label: "hard", value: rating.hard, tone: "red" },
             { label: "medium", value: rating.medium, tone: "yellow" },
             { label: "easy", value: rating.easy, tone: "green" },
-          ]}
-        />
-        <ReviewCounter
-          kind="articles"
-          title="Artigos e notas"
-          subtitle="Leituras e anotações salvas para revisar."
-          count={dueART.length}
-          tone="purple"
-          accent="purple"
-          subCounts={[
-            { label: "notes", value: allART.length, tone: "default" },
-            { label: "snippets", value: allSN.length, tone: "default" },
           ]}
         />
       </section>
@@ -325,49 +304,6 @@ export function DashboardContent() {
             </div>
           </RetroCard>
 
-          <RetroCard
-            title="Uma dica para resolver desafios"
-            accent="green"
-            icon={<Coffee size={15} />}
-          >
-            <p className="text-[12.5px] text-retro-text-dim leading-relaxed">
-              Antes de começar a solução,{" "}
-              <span className="text-retro-green">
-                escreva o passo a passo em comentários
-              </span>
-              . Depois transforme cada passo em código. Isso ajuda a evitar
-              <span className="text-retro-yellow">
-                {" "}
-                erros por pressa
-              </span>
-              .
-            </p>
-            <div className="mt-3 p-2.5 bg-retro-bgDark border border-retro-border font-mono text-[11.5px] text-retro-blue">
-              <div>
-                <span className="text-retro-comment">
-                  1. Confira os casos de borda
-                </span>
-              </div>
-              <div>
-                <span className="text-retro-comment">
-                  2. Escolha a estrutura de dados
-                </span>
-              </div>
-              <div>
-                <span className="text-retro-comment">
-                  3. Pense na complexidade
-                </span>
-              </div>
-              <div>
-                <span className="text-retro-comment">
-                  4. Escreva alguns testes
-                </span>
-              </div>
-              <div>
-                <span className="text-retro-comment">5. Escreva a solução</span>
-              </div>
-            </div>
-          </RetroCard>
         </div>
       </section>
     </div>

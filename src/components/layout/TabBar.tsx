@@ -2,7 +2,6 @@ import {
   LayoutDashboard,
   Code2,
   Layers,
-  FileText,
   FileCode,
   GitBranch,
   X,
@@ -19,7 +18,6 @@ const ICONS: Record<string, LucideIcon> = {
   LayoutDashboard,
   Code2,
   Layers,
-  FileText,
   FileCode,
   GitBranch,
 };
@@ -28,8 +26,6 @@ const FRIENDLY_TITLES: Record<string, string> = {
   'dashboard.review': 'Meu mural',
   'leetcode.problems': 'Desafios',
   'flashcards.deck': 'Flashcards',
-  'articles.notes': 'Leituras',
-  'snippets.lib': 'Rabiscos',
   'diagrams.flow': 'Fluxogramas',
 };
 

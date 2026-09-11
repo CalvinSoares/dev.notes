@@ -9,14 +9,12 @@ import {
 } from 'lucide-react';
 import { useFlashcardStore } from '@/store/useFlashcardStore';
 import { useLeetCodeStore } from '@/store/useLeetCodeStore';
-import { useContentStore } from '@/store/useContentStore';
 
 export function StatusBar() {
   const [now, setNow] = useState<Date>(new Date());
   const dueFC = useFlashcardStore((s) => s.getDueCards().length);
   const dueLC = useLeetCodeStore((s) => s.getDueProblems().length);
-  const dueART = useContentStore((s) => s.getDueArticles().length);
-  const total = dueFC + dueLC + dueART;
+  const total = dueFC + dueLC;
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30_000);
@@ -62,11 +60,6 @@ export function StatusBar() {
       key: 'fc',
       label: `FC:${dueFC}`,
       className: 'hidden sm:flex',
-    },
-    {
-      key: 'art',
-      label: `ART:${dueART}`,
-      className: 'hidden md:flex',
     },
     {
       key: 'status',

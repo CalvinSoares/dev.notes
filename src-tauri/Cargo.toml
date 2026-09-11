@@ -1,12 +1,12 @@
 [package]
-name = "enterview"
+name = "dev-notes"
 version = "0.1.0"
-description = "Enterview study workspace"
-authors = ["Enterview"]
+description = "dev.notes study workspace"
+authors = ["dev.notes"]
 edition = "2021"
 
 [lib]
-name = "enterview_lib"
+name = "dev_notes_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

@@ -1,8 +1,8 @@
-# Enterview
+# dev.notes
 
 Uma plataforma desktop para organizar e revisar estudos de programação em um só lugar.
 
-O Enterview combina flashcards, desafios de código, múltiplas abordagens de solução, sessões de estudo e fluxogramas interativos. A ideia é transformar o estudo em um espaço conectado: um mesmo conteúdo pode ser revisado, implementado e visualizado de diferentes formas.
+O dev.notes combina flashcards, desafios de código, múltiplas abordagens de solução, sessões de estudo e fluxogramas interativos. A ideia é transformar o estudo em um espaço conectado: um mesmo conteúdo pode ser revisado, implementado e visualizado de diferentes formas.
 
 ## Funcionalidades
 
@@ -75,9 +75,9 @@ pnpm tauri:build
 Os arquivos são gerados em:
 
 ```text
-src-tauri/target/release/enterview.exe
-src-tauri/target/release/bundle/nsis/Enterview_0.1.0_x64-setup.exe
-src-tauri/target/release/bundle/msi/Enterview_0.1.0_x64_en-US.msi
+src-tauri/target/release/dev.notes.exe
+src-tauri/target/release/bundle/nsis/dev.notes_0.1.0_x64-setup.exe
+src-tauri/target/release/bundle/msi/dev.notes_0.1.0_x64_en-US.msi
 ```
 
 O instalador `.exe` pode ser disponibilizado em uma [GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository).
@@ -105,7 +105,7 @@ src-tauri/
 
 ## Objetivo do projeto
 
-O objetivo do Enterview é unir estudo conceitual e prática de programação em um único ambiente. Em vez de manter anotações, desafios e diagramas separados, cada assunto pode ter seus próprios flashcards, implementações e representações visuais.
+O objetivo do dev.notes é unir estudo conceitual e prática de programação em um único ambiente. Em vez de manter anotações, desafios e diagramas separados, cada assunto pode ter seus próprios flashcards, implementações e representações visuais.
 
 ## Status
 
