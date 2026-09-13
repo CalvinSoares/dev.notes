@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "dev.notes",
+  "productName": "dunots",
   "version": "0.1.0",
   "identifier": "com.enterview.study",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "dev.notes",
+        "title": "dunots",
         "width": 1440,
         "height": 900,
         "minWidth": 960,

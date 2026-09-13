@@ -69,7 +69,7 @@ export function Sidebar() {
           <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
             <span className="logo-scribble"><PencilLine size={25} strokeWidth={2.8} /></span>
             {!sidebarCollapsed && <div>
-              <p className="font-display text-[25px] leading-none font-bold text-retro-text">dev.notes</p>
+              <p className="font-display text-[25px] leading-none font-bold text-retro-text">dunots</p>
               <p className="text-[13px] text-retro-comment mt-1">seu caderno de estudos</p>
             </div>}
           </div>

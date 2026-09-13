@@ -53,7 +53,7 @@ function BootSplash({ step }: { step: string }) {
         <div className="flex items-center gap-3 text-retro-blue mb-5">
           <span className="logo-scribble"><PencilLine size={24} /></span>
           <div>
-            <h1 className="font-display text-3xl font-bold text-retro-text leading-none">dev.notes</h1>
+            <h1 className="font-display text-3xl font-bold text-retro-text leading-none">dunots</h1>
             <span className="text-[14px] text-retro-comment">abrindo seu caderno...</span>
           </div>
         </div>

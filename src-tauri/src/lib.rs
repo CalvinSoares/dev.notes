@@ -17,5 +17,5 @@ pub fn run() {
                 .build(),
         )
         .run(tauri::generate_context!())
-        .expect("error while running dev.notes");
+        .expect("error while running dunots");
 }

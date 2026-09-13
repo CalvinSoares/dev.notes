@@ -1,8 +1,8 @@
 [package]
-name = "dev-notes"
+name = "dunots"
 version = "0.1.0"
-description = "dev.notes study workspace"
-authors = ["dev.notes"]
+description = "dunots study workspace"
+authors = ["dunots"]
 edition = "2021"
 
 [lib]
