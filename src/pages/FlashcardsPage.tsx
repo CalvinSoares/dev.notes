@@ -9,8 +9,10 @@ import { useFlashcardStore } from "@/store/useFlashcardStore";
 import { useLeetCodeStore } from "@/store/useLeetCodeStore";
 import { useStudyPhaseStore } from "@/store/useStudyPhaseStore";
 import { useAppStore } from "@/store/useAppStore";
-import type { Flashcard, SrsRating, StudyPhase } from "@core/types";
+import { useQuizStore } from "@/store/useQuizStore";
+import type { Flashcard, QuizQuestion, SrsRating, StudyPhase } from "@core/types";
 import { humanDueLabel } from "@core/lib/srs-algorithm";
+import { getQuizQuestionNumber } from "@core/lib/quiz";
 import {
   BookOpenCheck,
   Code2,
@@ -39,6 +41,7 @@ export function FlashcardsPage() {
   const updatePhase = useStudyPhaseStore((state) => state.updatePhase);
   const deletePhase = useStudyPhaseStore((state) => state.deletePhase);
   const openTab = useAppStore((state) => state.openTab);
+  const quizQuestions = useQuizStore((state) => state.questions);
 
   const [collectionId, setCollectionId] = useState<CollectionId>("today");
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -288,6 +291,8 @@ export function FlashcardsPage() {
                     card={card}
                     active={card.id === selectedCardId}
                     onClick={() => setSelectedCardId(card.id)}
+                    linkedQuestion={card.quizQuestionId ? quizQuestions.find((question) => question.id === card.quizQuestionId) : undefined}
+                    questionBank={quizQuestions}
                   />
                 )) : (
                   <div className="p-8 text-center">
@@ -334,7 +339,7 @@ export function FlashcardsPage() {
         icon={<Plus size={16} />}
         footer={<><RetroButton variant="default" onClick={() => setCardFormOpen(false)}>cancelar</RetroButton><RetroButton variant="primary" onClick={() => (document.getElementById("flashcard-create") as HTMLFormElement | null)?.requestSubmit()}>criar flashcard</RetroButton></>}
       >
-        <FlashcardForm formId="flashcard-create" onSubmit={createCard} />
+        <FlashcardForm formId="flashcard-create" questions={quizQuestions} onSubmit={createCard} />
       </RetroModal>
 
       <RetroModal
@@ -347,7 +352,7 @@ export function FlashcardsPage() {
         icon={<Pencil size={16} />}
         footer={<><RetroButton variant="default" onClick={() => setCardBeingEdited(null)}>cancelar</RetroButton><RetroButton variant="primary" onClick={() => (document.getElementById("flashcard-edit") as HTMLFormElement | null)?.requestSubmit()}>salvar</RetroButton></>}
       >
-        <FlashcardForm formId="flashcard-edit" initial={cardBeingEdited ?? undefined} onSubmit={saveCard} />
+        <FlashcardForm formId="flashcard-edit" initial={cardBeingEdited ?? undefined} questions={quizQuestions} onSubmit={saveCard} />
       </RetroModal>
 
       <RetroModal
@@ -413,18 +418,48 @@ function CollectionButton({
   );
 }
 
-function CardListItem({ card, active, onClick }: { card: Flashcard; active: boolean; onClick: () => void }) {
+function CardListItem({
+  card,
+  active,
+  linkedQuestion,
+  questionBank,
+  onClick,
+}: {
+  card: Flashcard;
+  active: boolean;
+  linkedQuestion?: QuizQuestion;
+  questionBank: QuizQuestion[];
+  onClick: () => void;
+}) {
   return (
-    <button
-      onClick={onClick}
-      className={`w-full text-left p-3 rounded-lg border transition-colors ${active ? "bg-retro-blue/10 border-retro-blue" : "border-transparent hover:bg-retro-panelHover hover:border-retro-border/50"}`}
-      aria-pressed={active}
-    >
-      <span className="block text-[14px] leading-snug font-medium text-retro-text line-clamp-2">{card.question}</span>
-      <span className="flex items-center justify-between gap-2 mt-2 text-[12px] text-retro-comment">
-        <span className="truncate">{card.tags.slice(0, 2).join(" · ") || card.language || "sem tópico"}</span>
-        <span className="shrink-0">{humanDueLabel(card.nextReviewAt)}</span>
-      </span>
-    </button>
+    <div className="group">
+      <button
+        onClick={onClick}
+        className={`w-full text-left p-3 rounded-lg border transition-colors ${active ? "bg-retro-blue/10 border-retro-blue" : "border-transparent hover:bg-retro-panelHover hover:border-retro-border/50"}`}
+        aria-pressed={active}
+      >
+        <span className="block text-[14px] leading-snug font-medium text-retro-text line-clamp-2">{card.question}</span>
+        <span className="flex items-center justify-between gap-2 mt-2 text-[12px] text-retro-comment">
+          <span className="truncate">{card.tags.slice(0, 2).join(" · ") || card.language || "sem tópico"}</span>
+          <span className="shrink-0">{humanDueLabel(card.nextReviewAt)}</span>
+        </span>
+        {linkedQuestion && (
+          <span className="mt-2 inline-flex items-center gap-1 text-[11px] text-retro-blue">
+            <FileQuestion size={12} aria-hidden /> Q{getQuizQuestionNumber(linkedQuestion, questionBank)} vinculada
+          </span>
+        )}
+      </button>
+      {linkedQuestion && (
+        <div className="hidden group-hover:block -mt-1 rounded-b-lg border border-t-0 border-retro-blue/50 bg-retro-panel p-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-retro-blue">
+            Prévia da questão vinculada · Q{getQuizQuestionNumber(linkedQuestion, questionBank)}
+          </p>
+          <p className="mt-1 text-[12px] leading-relaxed text-retro-text line-clamp-4">{linkedQuestion.statement}</p>
+          <p className="mt-2 text-[11px] text-retro-comment">
+            {linkedQuestion.examName || "prova"} · {linkedQuestion.topic}
+          </p>
+        </div>
+      )}
+    </div>
   );
 }

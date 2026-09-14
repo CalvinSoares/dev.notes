@@ -95,7 +95,7 @@ function escapeHtml(value: string) {
 function exportExamPdf(exam: QuizExam, questions: QuizQuestion[], includeAnswerKey: boolean, includeExplanations: boolean, includeNotes: boolean) {
   const popup = window.open("", "_blank", "width=960,height=760");
   if (!popup) return;
-  const body = questions.map((question, index) => `<article class="question"><h2>${index + 1}. ${escapeHtml(question.topic)}</h2><div class="statement">${escapeHtml(question.statement)}</div>${question.visualImages?.length || question.visualImage ? (question.visualImages ?? (question.visualImage ? [question.visualImage] : [])).map((image) => `<img class="visual" src="${image}" alt="Diagrama da questão" />`).join("") : ""}<ol type="A">${question.options.map((option) => `<li>${escapeHtml(option.text)}</li>`).join("")}</ol>${includeAnswerKey ? `<p class="answer"><strong>Gabarito:</strong> ${question.correctOption}</p>` : ""}${includeExplanations && question.explanation ? `<p class="explanation"><strong>Explicação:</strong> ${escapeHtml(question.explanation)}</p>` : ""}${includeNotes && question.notes ? `<p class="notes"><strong>Anotação:</strong> ${escapeHtml(question.notes)}</p>` : ""}</article>`).join("");
+  const body = questions.map((question, index) => `<article class="question"><h2>${question.order ?? index + 1}. ${escapeHtml(question.topic)}</h2><div class="statement">${escapeHtml(question.statement)}</div>${question.visualImages?.length || question.visualImage ? (question.visualImages ?? (question.visualImage ? [question.visualImage] : [])).map((image) => `<img class="visual" src="${image}" alt="Diagrama da questão" />`).join("") : ""}<ol type="A">${question.options.map((option) => `<li>${escapeHtml(option.text)}</li>`).join("")}</ol>${includeAnswerKey ? `<p class="answer"><strong>Gabarito:</strong> ${question.correctOption}</p>` : ""}${includeExplanations && question.explanation ? `<p class="explanation"><strong>Explicação:</strong> ${escapeHtml(question.explanation)}</p>` : ""}${includeNotes && question.notes ? `<p class="notes"><strong>Anotação:</strong> ${escapeHtml(question.notes)}</p>` : ""}</article>`).join("");
   popup.document.write(`<!doctype html><html><head><title>${escapeHtml(exam.title)}</title><style>@page{size:A4;margin:18mm}body{font-family:Arial,sans-serif;color:#17202a;line-height:1.45}h1{font-size:22px;margin:0 0 4px}h2{font-size:15px;margin:20px 0 8px;border-bottom:1px solid #cbd5e1;padding-bottom:4px}.meta{color:#475569;margin-bottom:22px}.question{break-inside:avoid}.statement{white-space:pre-wrap;font-size:14px}.question ol{padding-left:28px}.question li{margin:7px 0;white-space:pre-wrap}.visual{display:block;max-width:100%;max-height:420px;margin:12px auto;object-fit:contain}.answer{color:#047857}.explanation{background:#f1f5f9;padding:9px}.notes{background:#fff7ed;padding:9px}@media print{button{display:none}}</style></head><body><h1>${escapeHtml(exam.title)}</h1><p class="meta">${escapeHtml(exam.contestName)} · ${escapeHtml(exam.vacancy)}${exam.proofVersion ? ` · ${escapeHtml(exam.proofVersion)}` : ""}<br>${questions.length} questões</p>${body}</body></html>`);
   popup.document.close();
   popup.focus();
@@ -510,7 +510,8 @@ export function QuizPage() {
     await deleteQuestions(target.questionIds);
   };
   const saveQuestionPlacement = async (questionId: string, examId: string, order?: number) => {
-    await updateQuestion(questionId, { examId, order, examName: exams.find((exam) => exam.id === examId)?.title });
+    const current = questions.find((question) => question.id === questionId);
+    await updateQuestion(questionId, { examId, order: order ?? current?.order, examName: exams.find((exam) => exam.id === examId)?.title });
     setEditingQuestionId(null);
   };
   const addNewQuestion = async (data: QuizQuestionInput) => {
@@ -583,7 +584,7 @@ export function QuizPage() {
       <div className="h-full overflow-y-auto retro-scrollbar paper-page p-5 md:p-8">
         <div className="max-w-4xl mx-auto">
           <div className="flex justify-between gap-3 flex-wrap items-start mb-5">
-            <div><p className="text-retro-comment text-[13px]">{activeAttempt.title}</p><h1 className="text-xl font-bold text-retro-text">Questão {currentIndex + 1} de {activeQuestions.length}</h1></div>
+            <div><p className="text-retro-comment text-[13px]">{activeAttempt.title}</p><h1 className="text-xl font-bold text-retro-text">Questão {currentQuestion.order ?? currentIndex + 1} · {currentIndex + 1} de {activeQuestions.length}</h1></div>
             <RetroButton variant="primary" onClick={finishCurrent} icon={<CheckCircle2 size={15} />}>finalizar e corrigir</RetroButton>
           </div>
           <div className="h-2.5 bg-retro-panel border border-retro-border rounded overflow-hidden mb-6"><div className="h-full bg-retro-blue transition-all" style={{ width: `${((currentIndex + 1) / activeQuestions.length) * 100}%` }} /></div>
@@ -618,7 +619,7 @@ export function QuizPage() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6"><RetroCard accent="green"><p className="text-retro-comment text-[13px]">aproveitamento</p><p className="text-3xl font-bold text-retro-green">{score}%</p></RetroCard><RetroCard accent="blue"><p className="text-retro-comment text-[13px]">acertos</p><p className="text-3xl font-bold text-retro-blue">{resultAttempt.correctCount ?? 0}</p></RetroCard><RetroCard accent="orange"><p className="text-retro-comment text-[13px]">erros</p><p className="text-3xl font-bold text-retro-orange">{wrong}</p></RetroCard><RetroCard accent="purple"><p className="text-retro-comment text-[13px]">não respondidas</p><p className="text-3xl font-bold text-retro-purple">{unanswered}</p><p className="text-retro-comment text-[12px] mt-1">tempo: {formatDuration(resultAttempt.durationSeconds)}</p></RetroCard></div>
         {resultTopicStats.length > 0 && <section className="mt-7"><h2 className="font-bold text-retro-text mb-3">Desempenho por tópico</h2><div className="grid sm:grid-cols-2 gap-3">{resultTopicStats.map((stat) => <RetroCard key={stat.topic} accent={scoreTone(stat.rate)} className="!p-4"><div className="flex justify-between gap-3"><span className="text-retro-text">{stat.topic}</span><strong className="text-retro-blue">{stat.rate}%</strong></div><p className="text-retro-comment text-[12px] mt-1">{stat.correct}/{stat.total} acertos</p></RetroCard>)}</div></section>}
         <h2 className="font-bold text-retro-text mt-8 mb-3">Correção comentada</h2>
-        <div className="space-y-4">{resultQuestions.map((question, index) => { const answer = resultAttempt.answers[question.id]; const correct = answer === question.correctOption; return <RetroCard key={question.id} accent={correct ? "green" : "orange"} className="!p-5"><div className="flex justify-between gap-3"><span className="font-semibold text-retro-text">{index + 1}. {question.topic}</span>{correct ? <span className="text-retro-green inline-flex gap-1"><CheckCircle2 size={16} /> acertou</span> : <span className="text-retro-red inline-flex gap-1"><XCircle size={16} /> errou</span>}</div><QuestionContent value={question.statement} compact /><VisualReference question={question} /><QuestionNotes question={question} onSave={(notes) => updateQuestion(question.id, { notes })} /><div className="mt-3 text-[14px]"><span className="text-retro-comment">Sua resposta: </span><strong className={correct ? "text-retro-green" : "text-retro-red"}>{answer ?? "não respondida"}</strong><span className="text-retro-comment ml-4">Gabarito: </span><strong className="text-retro-green">{question.correctOption}</strong></div>{question.explanation && <div className="mt-4 p-3 bg-retro-panelHover border-l-4 border-retro-blue text-retro-text-dim text-[14px]"><strong className="text-retro-text">Explicação: </strong>{question.explanation}</div>}{question.sourceName && <p className="mt-3 text-[12px] text-retro-comment">Fonte: {question.sourceName}{question.sourcePage ? ` · pág. ${question.sourcePage}` : ""}</p>}</RetroCard>; })}</div>
+        <div className="space-y-4">{resultQuestions.map((question, index) => { const answer = resultAttempt.answers[question.id]; const correct = answer === question.correctOption; return <RetroCard key={question.id} accent={correct ? "green" : "orange"} className="!p-5"><div className="flex justify-between gap-3"><span className="font-semibold text-retro-text">{question.order ?? index + 1}. {question.topic}</span>{correct ? <span className="text-retro-green inline-flex gap-1"><CheckCircle2 size={16} /> acertou</span> : <span className="text-retro-red inline-flex gap-1"><XCircle size={16} /> errou</span>}</div><QuestionContent value={question.statement} compact /><VisualReference question={question} /><QuestionNotes question={question} onSave={(notes) => updateQuestion(question.id, { notes })} /><div className="mt-3 text-[14px]"><span className="text-retro-comment">Sua resposta: </span><strong className={correct ? "text-retro-green" : "text-retro-red"}>{answer ?? "não respondida"}</strong><span className="text-retro-comment ml-4">Gabarito: </span><strong className="text-retro-green">{question.correctOption}</strong></div>{question.explanation && <div className="mt-4 p-3 bg-retro-panelHover border-l-4 border-retro-blue text-retro-text-dim text-[14px]"><strong className="text-retro-text">Explicação: </strong>{question.explanation}</div>}{question.sourceName && <p className="mt-3 text-[12px] text-retro-comment">Fonte: {question.sourceName}{question.sourcePage ? ` · pág. ${question.sourcePage}` : ""}</p>}</RetroCard>; })}</div>
       </div></div>
     );
   }
@@ -640,49 +641,4 @@ export function QuizPage() {
     </div></div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

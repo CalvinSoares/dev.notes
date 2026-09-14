@@ -99,7 +99,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     if (!original) return undefined;
     const now = new Date().toISOString();
     const exam: QuizExam = { ...original, id: makeId("exam"), title: title.trim() || `${original.title} (cópia)`, sourceName: undefined, answerKeyName: undefined, createdAt: now, updatedAt: now };
-    const questions = get().questions.filter((question) => question.examId === id).map((question, index) => ({ ...question, id: makeId("question"), examId: exam.id, order: index + 1, createdAt: now, updatedAt: now }));
+    const questions = get().questions.filter((question) => question.examId === id).map((question, index) => ({ ...question, id: makeId("question"), examId: exam.id, order: question.order ?? index + 1, createdAt: now, updatedAt: now }));
     await db.transaction("rw", db.quiz_exams, db.quiz_questions, async () => {
       await db.quiz_exams.add(exam);
       if (questions.length) await db.quiz_questions.bulkAdd(questions);
@@ -118,7 +118,9 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   addQuestion: async (input) => {
     if (!input.examId) throw new Error("Uma questão precisa pertencer a uma prova/vaga.");
     const now = new Date().toISOString();
-    const question: QuizQuestion = { id: makeId("question"), ...input, createdAt: now, updatedAt: now };
+    const examQuestions = get().questions.filter((question) => question.examId === input.examId);
+    const nextOrder = input.order ?? Math.max(0, ...examQuestions.map((question) => question.order ?? 0)) + 1;
+    const question: QuizQuestion = { id: makeId("question"), ...input, order: nextOrder, createdAt: now, updatedAt: now };
     await db.quiz_questions.add(question);
     set({ questions: [question, ...get().questions] });
     return question;
@@ -172,12 +174,4 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     return updated;
   },
 }));
-
-
-
-
-
-
-
-
 

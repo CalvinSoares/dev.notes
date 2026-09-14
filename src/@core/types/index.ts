@@ -48,6 +48,8 @@ export interface Flashcard {
   id: string;
   question: string;
   answer: string;
+  /** Questão de prova opcional vinculada a este flashcard. */
+  quizQuestionId?: string;
   codeSnippet?: string;
   language?: string;
   diagramIds?: string[];

@@ -8,6 +8,7 @@ const iso = (d: Date) => d.toISOString();
 export interface FlashcardMutablePatch {
   question?: string;
   answer?: string;
+  quizQuestionId?: string;
   codeSnippet?: string;
   language?: string;
   diagramIds?: string[];
@@ -28,6 +29,7 @@ interface FlashcardState {
   addCard: (patch: {
     question: string;
     answer: string;
+    quizQuestionId?: string;
     codeSnippet?: string;
     language?: string;
     diagramIds?: string[];
@@ -84,6 +86,7 @@ export const useFlashcardStore = create<FlashcardState>((set, get) => ({
       id,
       question: patch.question,
       answer: patch.answer,
+      quizQuestionId: patch.quizQuestionId,
       codeSnippet: patch.codeSnippet,
       language: patch.language,
       diagramIds: patch.diagramIds ?? [],
