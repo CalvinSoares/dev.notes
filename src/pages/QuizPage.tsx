@@ -494,6 +494,11 @@ export function QuizPage() {
   };
 
 
+  const viewResult = (attemptId: string) => {
+    setResultAttemptId(attemptId);
+    setActiveAttemptId(null);
+    setScreen("result");
+  };
   const addNewExam = async (data: QuizExamInput) => {
     const exam = await addExam(data);
     setExamModalOpen(false);
@@ -683,7 +688,35 @@ export function QuizPage() {
           })}
         </div>
       </section>}
-      {completedAttempts.length > 0 && <section className="mt-8"><h2 className="font-bold text-retro-text mb-3">Histórico recente</h2><div className="grid md:grid-cols-2 gap-3">{completedAttempts.slice(0, 4).map((attempt) => { const rate = attempt.questionIds.length ? Math.round(((attempt.correctCount ?? 0) / attempt.questionIds.length) * 100) : 0; return <RetroCard key={attempt.id} accent={scoreTone(rate)} className="!p-4"><div className="flex justify-between gap-3"><div><p className="font-semibold text-retro-text">{attempt.title}</p><p className="text-retro-comment text-[13px]">{attempt.questionIds.length} questões · {formatDuration(attempt.durationSeconds)}</p></div><strong className="text-retro-blue text-xl">{rate}%</strong></div></RetroCard>; })}</div></section>}
+      {completedAttempts.length > 0 && <section className="mt-8">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h2 className="font-bold text-retro-text">Histórico recente</h2>
+          <span className="text-[12px] text-retro-comment">{completedAttempts.length} concluído{completedAttempts.length === 1 ? "" : "s"}</span>
+        </div>
+        <div className="grid md:grid-cols-2 gap-3">
+          {completedAttempts.slice(0, 4).map((attempt) => {
+            const total = attempt.questionIds.length;
+            const answered = attempt.questionIds.filter((questionId) => Boolean(attempt.answers[questionId])).length;
+            const unanswered = total - answered;
+            const rate = total ? Math.round(((attempt.correctCount ?? 0) / total) * 100) : 0;
+            return (
+              <RetroCard key={attempt.id} accent={scoreTone(rate)} className="!p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-retro-text truncate">{attempt.title}</p>
+                    <p className="text-retro-comment text-[13px] mt-1">{answered} de {total} questões respondidas · {formatDuration(attempt.durationSeconds)}</p>
+                  </div>
+                  <strong className="text-retro-blue text-xl">{rate}%</strong>
+                </div>
+                <div className="flex justify-end gap-2 mt-3">
+                  {unanswered > 0 && <RetroButton onClick={() => void continueAttempt(attempt.id)} icon={<Target size={14} />}>continuar</RetroButton>}
+                  <RetroButton variant="ghost" onClick={() => viewResult(attempt.id)}>ver resultado</RetroButton>
+                </div>
+              </RetroCard>
+            );
+          })}
+        </div>
+      </section>}
       <RetroModal open={questionModalOpen} onClose={() => setQuestionModalOpen(false)} title="Nova questão" subtitle="Cadastre uma questão e seu gabarito para usá-la nos simulados." size="xl" icon={<CircleHelp size={16} />}><QuestionForm exams={exams} defaultExamId={examFilter === "all" ? undefined : examFilter} onSubmit={addNewQuestion} onCancel={() => setQuestionModalOpen(false)} /></RetroModal>
       <RetroModal open={examModalOpen} onClose={() => setExamModalOpen(false)} title="Nova prova/vaga" subtitle="Crie o pai que receberá as questões." size="lg" icon={<BookOpenCheck size={16} />}><ExamForm onSubmit={addNewExam} onCancel={() => setExamModalOpen(false)} /></RetroModal>
       <RetroModal open={Boolean(editingExam)} onClose={() => setEditingExamId(null)} title="Editar prova/vaga" subtitle="Atualize os dados do agrupador sem mexer nas questões." size="lg" icon={<Pencil size={16} />}><ExamForm key={editingExamId ?? "none"} exam={editingExam} onSubmit={saveExamEdits} onCancel={() => setEditingExamId(null)} /></RetroModal>
