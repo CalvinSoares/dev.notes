@@ -1,4 +1,5 @@
 # dunots
+<img width="1435" height="656" alt="image" src="https://github.com/user-attachments/assets/df362204-e9e8-499b-93db-020b15d12936" />
 
 Uma plataforma desktop para organizar e revisar estudos de programação em um só lugar.
 
