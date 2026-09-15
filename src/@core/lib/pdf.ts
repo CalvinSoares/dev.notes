@@ -195,24 +195,85 @@ export function parseAnswerKey(text: string): Map<number, QuestionOptionId> {
   return answerKey;
 }
 
+function decodePdfEntities(value: string) {
+  return value
+    .replace(/&#x([0-9a-f]+);?/gi, (_, hex: string) => String.fromCodePoint(Number.parseInt(hex, 16)))
+    .replace(/&#(\d+);?/g, (_, decimal: string) => String.fromCodePoint(Number(decimal)))
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'");
+}
+function splitInlineOptions(value: string) {
+  return value.split("\n").flatMap((line) => {
+    const markers = Array.from(line.matchAll(/(?:\([A-E]\)|[A-E][.)-])(?=\s*\S)/g));
+    if (markers.length < 2) {
+      return [line.replace(/((?:\([A-E]\)|[A-E][.)-]))(?=\s*\S)/g, "$1 ")];
+    }
+    const parts: string[] = [];
+    let start = 0;
+    markers.forEach((marker, index) => {
+      if (index > 0) parts.push(line.slice(start, marker.index));
+      start = marker.index!;
+      if (index === markers.length - 1) parts.push(line.slice(start));
+    });
+    return parts.map((part) => part.replace(/((?:\([A-E]\)|[A-E][.)-]))(?=\s*\S)/g, "$1 "));
+  }).join("\n");
+}
+
 function formatQuestionBlock(value: string) {
   return value
     .replace(/\[\[DEV_NOTES_PAGE:\d+\]\]\s*/g, "")
     .split("\n")
-    .map((line) => line.replace(/[ \t]+$/g, ""))
+    .map((line) => decodePdfEntities(line).replace(/[ \t]+$/g, ""))
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
+function formatQuestionText(value: string) {
+  const block = formatQuestionBlock(value);
+  if (/[{};]|\|\s*[-A-Za-z]|\b(?:SELECT|FROM|WHERE|WITH|UNION|JOIN|INSERT|UPDATE|DELETE|public|class|return)\b|[∧∨¬→]/i.test(block)) {
+    return block;
+  }
+
+  const paragraphs: string[] = [];
+  let current = "";
+  const flush = () => {
+    if (current.trim()) paragraphs.push(current.trim());
+    current = "";
+  };
+
+  for (const rawLine of block.split("\n")) {
+    const line = rawLine.trim();
+    if (!line) {
+      flush();
+      continue;
+    }
+    const isReadingParagraph = /^\d{1,2}\s{2,}/.test(rawLine);
+    const isList = /^(?:[•●▪◦-]|\d+[.)])\s+/.test(line);
+    if (isReadingParagraph || (isList && current)) flush();
+    current = current ? current + " " + line : line;
+    if (isList) flush();
+  }
+  flush();
+  return paragraphs.join("\n\n");
+}
 function isPdfChromeLine(value: string) {
   const line = value.trim();
-  return /^(?:pcimarkpci\b.*|https?:\/\/\S+|www\.\S+|TRANSPETRO|TERRA|RASCUNHO|CONHECIMENTOS ESPECÍFICOS)$/i.test(line)
+  return /^(?:pcimarkpci\b.*|https?:\/\/\S+|www\.\S+|TRANSPETRO|TERRA|RASCUNHO|CONHECIMENTOS ESPECÍFICOS|LÍNGUA\s+(?:INGLESA|PORTUGUESA))$/i.test(line)
     || /^PROVA\s+\d+\b.*$/i.test(line)
     || /^-\s*(?:INFRAESTRUTURA|PROCESSOS\s+DE\s+NEG[ÓO]CIOS)\b.*$/i.test(line);
 }
 
 function removePdfChrome(value: string) {
-  const lines = value.replace(/\r/g, "").split("\n");
+  const lines = value.replace(/\r/g, "").split("\n").map((line) =>
+    line
+      .replace(/\s+PROVA\s+\d+\s*[-–—].*$/i, "")
+      .replace(/\s+(?:https?:\/\/|www\.)\S+\s*$/i, "")
+      .replace(/\s+TRANSPETRO\s*$/i, ""),
+  );
   return lines.filter((line, index) => {
     if (isPdfChromeLine(line)) return false;
     if (!/^\s*\d{1,3}\s*$/.test(line)) return true;
@@ -255,7 +316,7 @@ export function parseQuestions(text: string, answerKey = new Map<number, Questio
     const number = Number(header[1]);
     const start = header.index! + header[0].length;
     const end = headers[index + 1]?.index ?? normalized.length;
-    const body = normalized.slice(start, end).trim();
+    const body = splitInlineOptions(normalized.slice(start, end).trim());
     const previousPages = Array.from(normalized.slice(0, header.index).matchAll(/\[\[DEV_NOTES_PAGE:(\d+)\]\]/g));
     const pageNumber = Number(previousPages.at(-1)?.[1] ?? 1);
 
@@ -265,13 +326,13 @@ export function parseQuestions(text: string, answerKey = new Map<number, Questio
     const markers = Array.from(body.matchAll(optionMatcher));
     if (number < 1 || number > 300 || !body || markers.length < 2) continue;
 
-    const statement = formatQuestionBlock(body.slice(0, markers[0].index));
+    const statement = formatQuestionText(body.slice(0, markers[0].index));
     const extractedOptions: QuizQuestionOption[] = markers.map((marker, optionIndex) => {
       const markerEnd = marker.index! + marker[0].length;
       const optionEnd = markers[optionIndex + 1]?.index ?? body.length;
       return {
         id: (marker[1] ?? marker[2]) as QuestionOptionId,
-        text: formatQuestionBlock(body.slice(markerEnd, optionEnd)),
+        text: formatQuestionText(body.slice(markerEnd, optionEnd)),
       };
     });
     // Diagramas vetoriais podem trazer apenas os rótulos (A)–(E), sem texto.
@@ -305,7 +366,7 @@ export function parseQuestions(text: string, answerKey = new Map<number, Questio
   for (const match of normalized.matchAll(visualOnlyMatcher)) {
     const number = Number(match[1]);
     if (byNumber.has(number) || number < 1 || number > 300) continue;
-    const statement = formatQuestionBlock(match[2]);
+    const statement = formatQuestionText(match[2]);
     if (!statement) continue;
     const precedingPages = Array.from(normalized.slice(0, match.index).matchAll(/\[\[DEV_NOTES_PAGE:(\d+)\]\]/g));
     const pageNumber = Number(precedingPages.at(-1)?.[1] ?? 1);
@@ -333,28 +394,3 @@ export function parseQuestions(text: string, answerKey = new Map<number, Questio
     };
   });
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -49,6 +49,7 @@ interface QuizState {
   createAttempt: (title: string, questionIds: string[]) => Promise<QuizAttempt>;
   saveAnswer: (attemptId: string, questionId: string, answer: QuestionOptionId) => Promise<void>;
   finishAttempt: (attemptId: string) => Promise<QuizAttempt | undefined>;
+  resumeAttempt: (attemptId: string) => Promise<QuizAttempt | undefined>;
 }
 
 export const useQuizStore = create<QuizState>((set, get) => ({
@@ -173,5 +174,18 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     set({ attempts: get().attempts.map((item) => (item.id === attemptId ? updated : item)) });
     return updated;
   },
-}));
 
+  resumeAttempt: async (attemptId) => {
+    const attempt = get().attempts.find((item) => item.id === attemptId);
+    if (!attempt) return undefined;
+    const resumed: QuizAttempt = {
+      ...attempt,
+      finishedAt: undefined,
+      durationSeconds: undefined,
+      correctCount: undefined,
+    };
+    await db.quiz_attempts.put(resumed);
+    set({ attempts: get().attempts.map((item) => (item.id === attemptId ? resumed : item)) });
+    return resumed;
+  },
+}));
