@@ -161,9 +161,14 @@ export interface QuizAttempt {
   questionIds: string[];
   answers: Record<string, QuestionOptionId>;
   startedAt: string;
+  /** Estado explícito para não depender da presença de finishedAt. */
+  status?: "in-progress" | "completed";
+  /** Índice da questão que estava aberta quando o estudante saiu. */
+  currentQuestionIndex?: number;
   finishedAt?: string;
   durationSeconds?: number;
   correctCount?: number;
+  updatedAt?: string;
 }
 export interface ReviewItem {
   id: string;
