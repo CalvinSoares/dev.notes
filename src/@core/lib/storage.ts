@@ -1,7 +1,7 @@
 import Database from "@tauri-apps/plugin-sql";
 import { db, seedIfEmpty as seedBrowser, SEED_ARTICLES, SEED_FLASHCARDS, SEED_LEETCODE, SEED_SNIPPETS } from "@core/lib/db";
 
-type Collection = "flashcards" | "leetcode_problems" | "articles" | "snippets" | "study_phases" | "diagrams" | "quiz_exams" | "quiz_questions" | "quiz_attempts";
+type Collection = "flashcards" | "leetcode_problems" | "articles" | "snippets" | "study_phases" | "diagrams" | "quiz_exams" | "quiz_questions" | "quiz_attempts" | "study_roadmaps" | "roadmap_nodes" | "roadmap_links";
 const isDesktop = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 let sqlitePromise: ReturnType<typeof Database.load> | null = null;
 let quizMigrationPromise: Promise<void> | null = null;
@@ -69,6 +69,9 @@ export const storage = {
       if (collection === "diagrams") return db.diagrams.orderBy("updatedAt").reverse().toArray() as unknown as T[];
       if (collection === "quiz_exams") return db.quiz_exams.orderBy("updatedAt").reverse().toArray() as unknown as T[];
       if (collection === "quiz_questions") return db.quiz_questions.orderBy("updatedAt").reverse().toArray() as unknown as T[];
+      if (collection === "study_roadmaps") return db.study_roadmaps.orderBy("updatedAt").reverse().toArray() as unknown as T[];
+      if (collection === "roadmap_nodes") return db.roadmap_nodes.orderBy("updatedAt").reverse().toArray() as unknown as T[];
+      if (collection === "roadmap_links") return db.roadmap_links.orderBy("createdAt").toArray() as unknown as T[];
       return db.quiz_attempts.orderBy("startedAt").reverse().toArray() as unknown as T[];
     }
     const database = await sqlite();
@@ -85,6 +88,9 @@ export const storage = {
       if (collection === "diagrams") return db.diagrams.put(item as never);
       if (collection === "quiz_exams") return db.quiz_exams.put(item as never);
       if (collection === "quiz_questions") return db.quiz_questions.put(item as never);
+      if (collection === "study_roadmaps") return db.study_roadmaps.put(item as never);
+      if (collection === "roadmap_nodes") return db.roadmap_nodes.put(item as never);
+      if (collection === "roadmap_links") return db.roadmap_links.put(item as never);
       return db.quiz_attempts.put(item as never);
     }
     const database = await sqlite();
@@ -103,6 +109,9 @@ export const storage = {
       if (collection === "diagrams") return db.diagrams.delete(id);
       if (collection === "quiz_exams") return db.quiz_exams.delete(id);
       if (collection === "quiz_questions") return db.quiz_questions.delete(id);
+      if (collection === "study_roadmaps") return db.study_roadmaps.delete(id);
+      if (collection === "roadmap_nodes") return db.roadmap_nodes.delete(id);
+      if (collection === "roadmap_links") return db.roadmap_links.delete(id);
       return db.quiz_attempts.delete(id);
     }
     const database = await sqlite();

@@ -1,5 +1,6 @@
 import Dexie, { type Table } from "dexie";
 import type { Flashcard, LeetCodeProblem, Article, Snippet, StudyPhase, StudyDiagram, QuizAttempt, QuizQuestion, QuizExam } from "@core/types";
+import type { StudyRoadmap, StudyRoadmapNode, StudyRoadmapLink } from "@core/types/roadmap";
 import { subDays, addDays } from "date-fns";
 
 export interface RetroDBSchema {
@@ -11,6 +12,9 @@ export interface RetroDBSchema {
   quiz_exams: QuizExam;
   quiz_questions: QuizQuestion;
   quiz_attempts: QuizAttempt;
+  study_roadmaps: StudyRoadmap;
+  roadmap_nodes: StudyRoadmapNode;
+  roadmap_links: StudyRoadmapLink;
 }
 
 const iso = (d: Date) => d.toISOString();
@@ -453,6 +457,9 @@ class RetroCodeDexie extends Dexie {
   quiz_exams!: Table<QuizExam, string>;
   quiz_questions!: Table<QuizQuestion, string>;
   quiz_attempts!: Table<QuizAttempt, string>;
+  study_roadmaps!: Table<StudyRoadmap, string>;
+  roadmap_nodes!: Table<StudyRoadmapNode, string>;
+  roadmap_links!: Table<StudyRoadmapLink, string>;
 
   constructor() {
     super("retrocode-study-db");
@@ -503,6 +510,20 @@ class RetroCodeDexie extends Dexie {
       quiz_exams: "id, contestName, vacancy, updatedAt",
       quiz_questions: "id, examId, examName, subject, topic, updatedAt",
       quiz_attempts: "id, startedAt, finishedAt",
+    });
+    this.version(7).stores({
+      flashcards: "id, nextReviewAt, repetitions, interval",
+      leetcode_problems: "id, problemId, difficulty, nextReviewAt",
+      articles: "id, nextReviewAt",
+      snippets: "id, language, createdAt",
+      study_phases: "id, updatedAt",
+      diagrams: "id, updatedAt",
+      quiz_exams: "id, contestName, vacancy, updatedAt",
+      quiz_questions: "id, examId, examName, subject, topic, updatedAt",
+      quiz_attempts: "id, startedAt, finishedAt",
+      study_roadmaps: "id, status, updatedAt",
+      roadmap_nodes: "id, roadmapId, parentId, updatedAt",
+      roadmap_links: "id, nodeId, resourceType, resourceId",
     });
   }
 }
