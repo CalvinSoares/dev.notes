@@ -71,7 +71,7 @@ export const storage = {
       if (collection === "quiz_questions") return db.quiz_questions.orderBy("updatedAt").reverse().toArray() as unknown as T[];
       if (collection === "study_roadmaps") return db.study_roadmaps.orderBy("updatedAt").reverse().toArray() as unknown as T[];
       if (collection === "roadmap_nodes") return db.roadmap_nodes.orderBy("updatedAt").reverse().toArray() as unknown as T[];
-      if (collection === "roadmap_links") return db.roadmap_links.orderBy("createdAt").toArray() as unknown as T[];
+      if (collection === "roadmap_links") return db.roadmap_links.toArray().then((items) => items.sort((left, right) => left.createdAt.localeCompare(right.createdAt))) as unknown as T[];
       return db.quiz_attempts.orderBy("startedAt").reverse().toArray() as unknown as T[];
     }
     const database = await sqlite();
