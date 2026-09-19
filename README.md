@@ -14,8 +14,32 @@ O dunots combina flashcards, desafios de código, múltiplas abordagens de solu�
 - Fluxogramas interativos para representar algoritmos e raciocínios.
 - Blocos redimensionáveis e edição visual de textos, cores e conexões.
 - Vínculos entre fases, flashcards, desafios e fluxogramas.
+- Roadmaps de estudos com tópicos, subtópicos, anotações e progresso.
+- Importação de editais por texto ou PDF, com preview antes da criação da trilha.
+- Reconhecimento de partes, seções numeradas, listas e níveis de indentação.
+- Vínculo entre tópicos da trilha, flashcards e questões de simulados.
+- Sessões de estudo e simulados filtrados pelos materiais da trilha.
+- Indicadores de flashcards revisados e questões respondidas por tópico.
+- Banco de questões com importação de provas, gabaritos e versões de prova.
 - Persistência local dos dados usando SQLite no aplicativo desktop.
 - Execução no navegador como fallback para desenvolvimento.
+
+## Roadmaps de estudos
+
+Os roadmaps permitem transformar um edital em uma trilha de estudo organizada. Cada trilha pode conter tópicos e subtópicos, com checkbox de conclusão, anotações privadas e materiais vinculados.
+
+Para importar um edital:
+
+1. Abra `Roadmaps` na barra lateral.
+2. Clique em `importar edital`.
+3. Informe o nome da trilha.
+4. Selecione um PDF textual ou cole o conteúdo do edital.
+5. Revise o preview hierárquico.
+6. Clique em `criar trilha`.
+
+O importador reconhece estruturas como `PARTE 1`, seções numeradas, listas e indentação. Quando uma trilha já estiver selecionada, os tópicos são adicionados a ela; caso contrário, uma nova trilha é criada automaticamente.
+
+PDFs escaneados, sem texto selecionável, podem exigir OCR antes da importação.
 
 ## Tecnologias
 
