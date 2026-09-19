@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { FilePlus2, FileText, Loader2 } from "lucide-react";
+import { parseRoadmapImportText } from "@core/lib/roadmap";
 import { readPdfText } from "@core/lib/pdf";
 import { RetroButton } from "@/components/ui/RetroButton";
 import { RetroModal } from "@/components/ui/RetroModal";
@@ -10,6 +11,7 @@ export function RoadmapImportModal({ open, onClose, onImport }: { open: boolean;
   const [readingPdf, setReadingPdf] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const preview = useMemo(() => parseRoadmapImportText(text), [text]);
 
   const handlePdf = async (file: File | undefined) => {
     if (!file) return;
@@ -43,14 +45,14 @@ export function RoadmapImportModal({ open, onClose, onImport }: { open: boolean;
       open={open}
       onClose={onClose}
       title="Importar edital para a trilha"
-      subtitle="Use um PDF textual ou cole o conteúdo. Revise o texto antes de criar os tópicos."
+      subtitle="Use um PDF textual ou cole o conteúdo. Revise o texto e o preview antes de criar os tópicos."
       icon={<FilePlus2 size={17} />}
       accent="blue"
-      size="lg"
+      size="xl"
       footer={
         <>
           <RetroButton onClick={onClose}>cancelar</RetroButton>
-          <RetroButton variant="primary" disabled={saving || readingPdf || !text.trim() || !title.trim()} onClick={() => void importText()}>
+          <RetroButton variant="primary" disabled={saving || readingPdf || !preview.length || !title.trim()} onClick={() => void importText()}>
             {saving ? "criando..." : "criar trilha"}
           </RetroButton>
         </>
@@ -68,15 +70,43 @@ export function RoadmapImportModal({ open, onClose, onImport }: { open: boolean;
         </label>
 
         <label className="block text-[12px] text-retro-comment">
+          Nome da trilha
+          <input value={title} onChange={(event) => setTitle(event.target.value)} className="retro-input w-full mt-1" placeholder="Ex.: Analista de Sistemas — Infraestrutura" />
+        </label>
+
+        <label className="block text-[12px] text-retro-comment">
           Texto do edital
           <textarea
             autoFocus
             value={text}
             onChange={(event) => setText(event.target.value)}
-            className="retro-input w-full min-h-64 mt-1 font-mono text-[12px]"
+            className="retro-input w-full min-h-48 mt-1 font-mono text-[12px]"
             placeholder={"Ex.:\nPARTE 1: Infraestrutura\n1. Redes de computadores\nArquiteturas de rede\nTopologias de rede\n2. Linux\nShell Script"}
           />
         </label>
+
+        <section className="rounded-lg border border-retro-border/70 overflow-hidden">
+          <div className="flex items-center justify-between gap-3 px-3 py-2 bg-retro-panelHover border-b border-retro-border/60">
+            <div>
+              <h3 className="text-[12px] text-retro-text font-semibold">Preview da trilha</h3>
+              <p className="text-[11px] text-retro-comment">{preview.length + " itens reconhecidos"}</p>
+            </div>
+            {preview.length > 0 && <span className="text-[11px] text-retro-blue">{preview.filter((item) => item.depth === 0).length + " níveis principais"}</span>}
+          </div>
+          {preview.length > 0 ? (
+            <div className="max-h-56 overflow-y-auto retro-scrollbar p-2 space-y-1">
+              {preview.slice(0, 160).map((item, index) => (
+                <div key={`${item.depth}-${index}`} className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-retro-panelHover" style={{ paddingLeft: `${8 + Math.min(item.depth * 5, 56)}px` }}>
+                  <span className={"shrink-0 text-[9px] uppercase tracking-wider " + (item.depth === 0 ? "text-retro-blue" : "text-retro-comment")}>{item.depth === 0 ? "parte" : "sub"}</span>
+                  <span className="text-[12px] text-retro-text truncate">{item.title}</span>
+                </div>
+              ))}
+              {preview.length > 160 && <p className="px-2 py-2 text-[11px] text-retro-comment">+ {preview.length - 160} itens não exibidos no preview.</p>}
+            </div>
+          ) : (
+            <div className="p-5 text-center text-[12px] text-retro-comment">Cole o texto ou selecione um PDF para visualizar a estrutura reconhecida.</div>
+          )}
+        </section>
 
         <div className="p-3 rounded-lg border border-retro-border/60 bg-retro-panelHover text-[11px] text-retro-comment">
           A lista será adicionada à trilha selecionada. Se nenhuma existir, uma nova trilha será criada. Partes viram níveis principais, seções numeradas viram tópicos e linhas seguintes viram subtópicos. PDFs escaneados podem exigir OCR antes da importação.
