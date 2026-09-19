@@ -49,6 +49,12 @@ try {
   assert.equal(moved.find((node) => node.id === "nosql").order, 0);
   assert.equal(moved.find((node) => node.id === "sql").order, 1);
 
+  const materialProgress = roadmap.getRoadmapMaterialProgress([
+    { id: "link-card", nodeId: "topic", resourceType: "flashcard", resourceId: "card-1", order: 0, createdAt: "2026-01-01" },
+    { id: "link-question", nodeId: "topic", resourceType: "quiz-question", resourceId: "q1", order: 1, createdAt: "2026-01-01" },
+  ], [{ id: "card-1", repetitions: 2, lastReviewAt: "2026-01-02" }], [{ questionIds: ["q1"], answers: { q1: "A" } }], ["topic"]);
+  assert.deepEqual(materialProgress, { total: 2, completed: 2, percentage: 100, flashcardsTotal: 1, flashcardsCompleted: 1, questionsTotal: 1, questionsAnswered: 1 });
+
   console.log("quiz and roadmap tests: ok");
 } finally {
   await server.close();
