@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import {
   AlertTriangle,
-  BookOpen,
   FilePlus2,
   CheckCircle2,
   Link2,
@@ -18,7 +17,7 @@ import {
 import { ProgressBar, RoadmapTree } from "@/components/features/roadmaps/RoadmapTree";
 import { LinkModal, NodeFormModal, RoadmapFormModal, type NodeForm, type RoadmapForm } from "@/components/features/roadmaps/RoadmapModals";
 import { RoadmapImportModal } from "@/components/features/roadmaps/RoadmapImportModal";
-import { getRoadmapMaterialProgress, getRoadmapProgress } from "@core/lib/roadmap";
+import { getRoadmapMaterialProgress, getRoadmapProgress, parseRoadmapImportText } from "@core/lib/roadmap";
 import type { StudyRoadmap, StudyRoadmapLink, StudyRoadmapNode } from "@core/types/roadmap";
 import { useRoadmapStore } from "@/store/useRoadmapStore";
 import { useFlashcardStore } from "@/store/useFlashcardStore";
@@ -122,14 +121,13 @@ export function RoadmapsPage() {
 
   const importRoadmapTopics = async (text: string) => {
     if (!selectedRoadmap) return;
-    const stack: Array<{ indent: number; id: string }> = [];
-    const lines = text.split(/\r?\n/).map((line) => ({ raw: line, title: line.replace(/^\s*[-*•]\s*/, "").replace(/^#+\s*/, "").trim() })).filter((line) => line.title);
+    const stack: Array<{ depth: number; id: string }> = [];
+    const lines = parseRoadmapImportText(text);
     for (const line of lines) {
-      const indent = line.raw.match(/^\s*/)?.[0].length ?? 0;
-      while (stack.length > 0 && stack[stack.length - 1].indent >= indent) stack.pop();
+      while (stack.length > 0 && stack[stack.length - 1].depth >= line.depth) stack.pop();
       const parentId = stack[stack.length - 1]?.id;
       const created = await addNode({ roadmapId: selectedRoadmap.id, parentId, kind: parentId ? "subtopic" : "topic", title: line.title });
-      stack.push({ indent, id: created.id });
+      stack.push({ depth: line.depth, id: created.id });
     }
     setImportModalOpen(false);
   };
