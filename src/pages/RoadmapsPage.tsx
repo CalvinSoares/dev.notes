@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   FilePlus2,
@@ -67,6 +67,10 @@ export function RoadmapsPage() {
   const openQuizQuestion = useAppStore((state) => state.openQuizQuestion);
   const startFlashcardStudy = useAppStore((state) => state.startFlashcardStudy);
   const startQuizWithQuestions = useAppStore((state) => state.startQuizWithQuestions);
+
+  useEffect(() => {
+    if (!hydrated && !roadmapError) void initializeRoadmaps();
+  }, [hydrated, roadmapError, initializeRoadmaps]);
 
   const [selectedId, setSelectedId] = useState<string | null>(roadmaps[0]?.id ?? null);
   const [roadmapModal, setRoadmapModal] = useState<{ open: boolean; editing: StudyRoadmap | null }>({ open: false, editing: null });

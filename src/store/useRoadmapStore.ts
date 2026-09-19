@@ -5,6 +5,25 @@ import type { StudyRoadmap, StudyRoadmapLink, StudyRoadmapNode, StudyRoadmapStat
 
 const iso = (date: Date) => date.toISOString();
 const makeId = (prefix: string) => prefix + "-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+const ROADMAP_INIT_TIMEOUT_MS = 12_000;
+
+let roadmapInitialization: Promise<void> | null = null;
+
+function withTimeout<T>(promise: Promise<T>, milliseconds: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => reject(new Error("A leitura das trilhas demorou mais que o esperado. Verifique o armazenamento do navegador e tente novamente.")), milliseconds);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeoutId);
+        resolve(value);
+      },
+      (cause) => {
+        window.clearTimeout(timeoutId);
+        reject(cause);
+      },
+    );
+  });
+}
 
 type RoadmapInput = {
   title: string;
@@ -52,20 +71,27 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 
   initialize: async () => {
     if (get().hydrated) return;
-    set({ error: null });
-    try {
-      const [roadmaps, nodes, links] = await Promise.all([
-        storage.list<StudyRoadmap>("study_roadmaps"),
-        storage.list<StudyRoadmapNode>("roadmap_nodes"),
-        storage.list<StudyRoadmapLink>("roadmap_links"),
-      ]);
-      set({ roadmaps, nodes, links, hydrated: true, error: null });
-    } catch (cause) {
-      const message = cause instanceof Error ? cause.message : "Não foi possível carregar a trilha de estudos.";
-      set({ error: message });
-    }
-  },
+    if (roadmapInitialization) return roadmapInitialization;
 
+    roadmapInitialization = (async () => {
+      set({ error: null });
+      try {
+        const [roadmaps, nodes, links] = await withTimeout(Promise.all([
+          storage.list<StudyRoadmap>("study_roadmaps"),
+          storage.list<StudyRoadmapNode>("roadmap_nodes"),
+          storage.list<StudyRoadmapLink>("roadmap_links"),
+        ]), ROADMAP_INIT_TIMEOUT_MS);
+        set({ roadmaps, nodes, links, hydrated: true, error: null });
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : "Não foi possível carregar a trilha de estudos.";
+        set({ error: message });
+      } finally {
+        roadmapInitialization = null;
+      }
+    })();
+
+    return roadmapInitialization;
+  },
   addRoadmap: async (input) => {
     if (!get().hydrated) await get().initialize();
     const now = iso(new Date());
