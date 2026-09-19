@@ -49,6 +49,7 @@ try {
   assert.equal(moved.find((node) => node.id === "nosql").order, 0);
   assert.equal(moved.find((node) => node.id === "sql").order, 1);
 
+  assert.deepEqual(roadmap.parseRoadmapImportText("PARTE 1: Infraestrutura\n1. Redes\nArquiteturas\n2. Linux\nShell Script").map((item) => item.depth), [0, 2, 4, 2, 4]);
   assert.deepEqual(roadmap.parseRoadmapImportText("Banco de dados\n  SQL\n  - Consultas\nRedes"), [
     { title: "Banco de dados", depth: 0 },
     { title: "SQL", depth: 2 },
