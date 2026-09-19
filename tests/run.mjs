@@ -10,6 +10,7 @@ const server = await createServer({
 try {
   const quiz = await server.ssrLoadModule("/src/@core/lib/quiz.ts");
   const pdf = await server.ssrLoadModule("/src/@core/lib/pdf.ts");
+  const roadmap = await server.ssrLoadModule("/src/@core/lib/roadmap.ts");
   const question = (id, topic = "redes") => ({ id, examId: "exam-1", statement: "enunciado", options: [{ id: "A", text: "sim" }, { id: "B", text: "não" }], correctOption: "A", subject: "TI", topic, createdAt: "2026-01-01", updatedAt: "2026-01-01" });
 
   assert.equal(quiz.getAttemptStatus({ status: "completed" }), "completed");
@@ -34,7 +35,21 @@ try {
   assert.equal(parsed[0].options.length, 3);
   assert.equal(parsed[1].options[0].id, "A");
 
-  console.log("quiz tests: ok");
+  const nodes = [
+    { id: "topic", roadmapId: "r1", kind: "topic", title: "Banco", order: 0, completed: false, createdAt: "2026-01-01", updatedAt: "2026-01-01" },
+    { id: "sql", roadmapId: "r1", parentId: "topic", kind: "subtopic", title: "SQL", order: 0, completed: false, createdAt: "2026-01-01", updatedAt: "2026-01-01" },
+    { id: "nosql", roadmapId: "r1", parentId: "topic", kind: "subtopic", title: "NoSQL", order: 1, completed: true, createdAt: "2026-01-01", updatedAt: "2026-01-01" },
+  ];
+  assert.deepEqual(roadmap.getRoadmapProgress("r1", nodes), { roadmapId: "r1", total: 2, completed: 1, percentage: 50 });
+  const completed = roadmap.setRoadmapNodeCompletion("topic", true, nodes, "2026-09-19T00:00:00.000Z");
+  assert.equal(completed.find((node) => node.id === "sql").completed, true);
+  assert.equal(completed.find((node) => node.id === "nosql").completed, true);
+  assert.equal(roadmap.getRoadmapDescendantNodes("topic", nodes).length, 2);
+  const moved = roadmap.moveRoadmapNode("nosql", "up", nodes, "2026-09-19T00:00:00.000Z");
+  assert.equal(moved.find((node) => node.id === "nosql").order, 0);
+  assert.equal(moved.find((node) => node.id === "sql").order, 1);
+
+  console.log("quiz and roadmap tests: ok");
 } finally {
   await server.close();
 }
