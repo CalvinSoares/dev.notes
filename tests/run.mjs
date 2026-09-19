@@ -49,6 +49,12 @@ try {
   assert.equal(moved.find((node) => node.id === "nosql").order, 0);
   assert.equal(moved.find((node) => node.id === "sql").order, 1);
 
+  assert.deepEqual(roadmap.parseRoadmapImportText("Banco de dados\n  SQL\n  - Consultas\nRedes"), [
+    { title: "Banco de dados", depth: 0 },
+    { title: "SQL", depth: 2 },
+    { title: "Consultas", depth: 2 },
+    { title: "Redes", depth: 0 },
+  ]);
   const materialProgress = roadmap.getRoadmapMaterialProgress([
     { id: "link-card", nodeId: "topic", resourceType: "flashcard", resourceId: "card-1", order: 0, createdAt: "2026-01-01" },
     { id: "link-question", nodeId: "topic", resourceType: "quiz-question", resourceId: "q1", order: 1, createdAt: "2026-01-01" },
