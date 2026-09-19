@@ -4,6 +4,7 @@ import {
   Layers,
   GitBranch,
   ClipboardCheck,
+  Route,
   X,
   PencilLine,
   Sparkles,
@@ -30,6 +31,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'nav-fc', pageId: 'flashcards', label: 'Flashcards', note: 'memória ativa', icon: Layers },
   { id: 'nav-diagrams', pageId: 'diagrams', label: 'Fluxogramas', note: 'pensamento visual', icon: GitBranch },
   { id: 'nav-quizzes', pageId: 'quizzes', label: 'Simulados', note: 'provas e questões', icon: ClipboardCheck },
+  { id: 'nav-roadmaps', pageId: 'roadmaps', label: 'Roadmaps', note: 'trilhas de estudo', icon: Route },
 ];
 
 export function Sidebar() {

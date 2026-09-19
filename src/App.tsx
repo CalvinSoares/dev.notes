@@ -6,12 +6,14 @@ import { useLeetCodeStore } from '@/store/useLeetCodeStore';
 import { useStudyPhaseStore } from '@/store/useStudyPhaseStore';
 import { useDiagramStore } from '@/store/useDiagramStore';
 import { useQuizStore } from '@/store/useQuizStore';
+import { useRoadmapStore } from '@/store/useRoadmapStore';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { LeetCodePage } from '@/pages/LeetCodePage';
 import { FlashcardsPage } from '@/pages/FlashcardsPage';
 import { FileQuestion, PencilLine, Sparkles } from 'lucide-react';
 import { DiagramsPage } from '@/pages/DiagramsPage';
 import { QuizPage } from '@/pages/QuizPage';
+import { RoadmapsPage } from '@/pages/RoadmapsPage';
 import type { PageId } from '@core/types';
 
 const PAGE_REGISTRY: Partial<Record<PageId, () => JSX.Element>> = {
@@ -20,6 +22,7 @@ const PAGE_REGISTRY: Partial<Record<PageId, () => JSX.Element>> = {
   flashcards: FlashcardsPage,
   diagrams: DiagramsPage,
   quizzes: QuizPage,
+  roadmaps: RoadmapsPage,
 };
 
 function FallbackPage({ pageId }: { pageId: PageId }) {
@@ -78,6 +81,7 @@ export function App() {
   const phaseInit = useStudyPhaseStore((s) => s.initialize);
   const diagramInit = useDiagramStore((s) => s.initialize);
   const quizInit = useQuizStore((s) => s.initialize);
+  const roadmapInit = useRoadmapStore((s) => s.initialize);
 
   useEffect(() => {
     let cancelled = false;
@@ -99,6 +103,9 @@ export function App() {
       setStep('carregando questões e simulados');
       await quizInit();
       if (cancelled) return;
+      setStep('carregando roadmaps');
+      await roadmapInit();
+      if (cancelled) return;
       setStep('layout: ready');
       await new Promise((r) => setTimeout(r, 120));
       if (!cancelled) setBooting(false);
@@ -106,7 +113,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [fcInit, lcInit, phaseInit, diagramInit, quizInit]);
+  }, [fcInit, lcInit, phaseInit, diagramInit, quizInit, roadmapInit]);
 
   if (booting) return <BootSplash step={step} />;
   return <RetroLayout content={<ActivePage />} />;

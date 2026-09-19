@@ -5,7 +5,8 @@ export type PageId =
   | "articles"
   | "snippets"
   | "diagrams"
-  | "quizzes";
+  | "quizzes"
+  | "roadmaps";
 
 export interface Tab {
   id: string;
