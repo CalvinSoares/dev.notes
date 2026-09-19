@@ -14,6 +14,18 @@ interface AppState {
   setSidebarOpen: (open: boolean) => void;
   toggleSidebarCollapsed: () => void;
   toggleTheme: () => void;
+  flashcardFocusId: string | null;
+  quizQuestionFocusId: string | null;
+  flashcardStudyIds: string[] | null;
+  quizStudyQuestionIds: string[] | null;
+  openFlashcard: (id: string) => void;
+  openQuizQuestion: (id: string) => void;
+  startFlashcardStudy: (ids: string[]) => void;
+  startQuizWithQuestions: (ids: string[]) => void;
+  clearFlashcardFocus: () => void;
+  clearQuizQuestionFocus: () => void;
+  clearFlashcardStudy: () => void;
+  clearQuizStudy: () => void;
 }
 
 const savedTheme =
@@ -31,6 +43,7 @@ const PAGE_META: Record<PageId, { title: string; iconName: string }> = {
   snippets: { title: 'snippets.lib', iconName: 'FileCode' },
   diagrams: { title: 'diagrams.flow', iconName: 'GitBranch' },
   quizzes: { title: 'simulados.provas', iconName: 'ClipboardCheck' },
+  roadmaps: { title: 'roadmaps.estudos', iconName: 'Route' },
 };
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -46,6 +59,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   sidebarOpen: false,
   sidebarCollapsed: savedSidebarCollapsed,
   theme: savedTheme,
+  flashcardFocusId: null,
+  quizQuestionFocusId: null,
+  flashcardStudyIds: null,
+  quizStudyQuestionIds: null,
 
   openTab: (pageId) => {
     const existing = get().tabs.find((t) => t.pageId === pageId);
@@ -96,6 +113,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     window.localStorage.setItem('devnotes-sidebar-collapsed', String(collapsed));
     set({ sidebarCollapsed: collapsed });
   },
+  openFlashcard: (id) => { get().openTab("flashcards"); set({ flashcardFocusId: id, flashcardStudyIds: null }); },
+  openQuizQuestion: (id) => { get().openTab("quizzes"); set({ quizQuestionFocusId: id, quizStudyQuestionIds: null }); },
+  startFlashcardStudy: (ids) => { get().openTab("flashcards"); set({ flashcardStudyIds: ids, flashcardFocusId: null }); },
+  startQuizWithQuestions: (ids) => { get().openTab("quizzes"); set({ quizStudyQuestionIds: ids, quizQuestionFocusId: null }); },
+  clearFlashcardFocus: () => set({ flashcardFocusId: null }),
+  clearQuizQuestionFocus: () => set({ quizQuestionFocusId: null }),
+  clearFlashcardStudy: () => set({ flashcardStudyIds: null }),
+  clearQuizStudy: () => set({ quizStudyQuestionIds: null }),
+
   toggleTheme: () => {
     const theme = get().theme === 'light' ? 'dark' : 'light';
     window.localStorage.setItem('devnotes-theme', theme);

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { RetroButton } from "@/components/ui/RetroButton";
 import { RetroModal, ConfirmDialog } from "@/components/ui/RetroModal";
 import { StudySession } from "@/components/features/flashcards/StudySession";
@@ -41,12 +41,17 @@ export function FlashcardsPage() {
   const updatePhase = useStudyPhaseStore((state) => state.updatePhase);
   const deletePhase = useStudyPhaseStore((state) => state.deletePhase);
   const openTab = useAppStore((state) => state.openTab);
+  const flashcardFocusId = useAppStore((state) => state.flashcardFocusId);
+  const clearFlashcardFocus = useAppStore((state) => state.clearFlashcardFocus);
+  const flashcardStudyIds = useAppStore((state) => state.flashcardStudyIds);
+  const clearFlashcardStudy = useAppStore((state) => state.clearFlashcardStudy);
   const quizQuestions = useQuizStore((state) => state.questions);
 
   const [collectionId, setCollectionId] = useState<CollectionId>("today");
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [sessionOpen, setSessionOpen] = useState(false);
+  const [studyCardIds, setStudyCardIds] = useState<string[] | null>(null);
   const [cardFormOpen, setCardFormOpen] = useState(false);
   const [cardBeingEdited, setCardBeingEdited] = useState<Flashcard | null>(null);
   const [cardToDelete, setCardToDelete] = useState<Flashcard | null>(null);
@@ -54,18 +59,39 @@ export function FlashcardsPage() {
   const [phaseBeingEdited, setPhaseBeingEdited] = useState<StudyPhase | null>(null);
   const [phaseToDelete, setPhaseToDelete] = useState<StudyPhase | null>(null);
 
+  useEffect(() => {
+    if (!flashcardFocusId || !cards.some((card) => card.id === flashcardFocusId)) return;
+    setCollectionId("all");
+    setSearch("");
+    setSelectedCardId(flashcardFocusId);
+    clearFlashcardFocus();
+  }, [cards, clearFlashcardFocus, flashcardFocusId]);
+
+  useEffect(() => {
+    if (!flashcardStudyIds?.length) return;
+    setStudyCardIds(flashcardStudyIds);
+    setSessionOpen(true);
+    setCollectionId("all");
+    setSearch("");
+    clearFlashcardStudy();
+  }, [clearFlashcardStudy, flashcardStudyIds]);
+
   const activePhase = useMemo(
     () => phases.find((phase) => phase.id === collectionId) ?? null,
     [collectionId, phases],
   );
 
   const collectionCards = useMemo(() => {
+    if (studyCardIds) {
+      const ids = new Set(studyCardIds);
+      return cards.filter((card) => ids.has(card.id));
+    }
     if (activePhase) {
       const ids = new Set(activePhase.flashcardIds);
       return cards.filter((card) => ids.has(card.id));
     }
     return collectionId === "all" ? cards : dueCards;
-  }, [activePhase, cards, collectionId, dueCards]);
+  }, [activePhase, cards, collectionId, dueCards, studyCardIds]);
 
   const filteredCards = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
@@ -327,7 +353,7 @@ export function FlashcardsPage() {
         </main>
       </div>
 
-      {sessionOpen && <StudySession cards={collectionCards} onReview={(id, rating: SrsRating) => reviewCard(id, rating)} onClose={() => setSessionOpen(false)} />}
+      {sessionOpen && <StudySession cards={collectionCards} onReview={(id, rating: SrsRating) => reviewCard(id, rating)} onClose={() => { setSessionOpen(false); setStudyCardIds(null); }} />}
 
       <RetroModal
         open={cardFormOpen}

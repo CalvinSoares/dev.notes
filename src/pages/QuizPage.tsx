@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BookOpenCheck, CircleHelp, Pencil } from "lucide-react";
 import { RetroModal } from "@/components/ui/RetroModal";
 import { useQuizStore } from "@/store/useQuizStore";
+import { useAppStore } from "@/store/useAppStore";
 import { DeleteConfirmModal, DuplicateExamModal, ExamForm, ExportModal, PdfImportModal, QuestionForm, QuestionPlacementModal } from "@/components/features/quiz/QuizModals";
 
 import { QuizTakingScreen } from "@/components/features/quiz/QuizTakingScreen";
@@ -31,6 +32,10 @@ export function QuizPage() {
   const deleteQuestions = useQuizStore((state) => state.deleteQuestions);
   const updateQuestion = useQuizStore((state) => state.updateQuestion);
   const addQuestion = useQuizStore((state) => state.addQuestion);
+  const quizQuestionFocusId = useAppStore((state) => state.quizQuestionFocusId);
+  const clearQuizQuestionFocus = useAppStore((state) => state.clearQuizQuestionFocus);
+  const quizStudyQuestionIds = useAppStore((state) => state.quizStudyQuestionIds);
+  const clearQuizStudy = useAppStore((state) => state.clearQuizStudy);
 
   const createAttempt = useQuizStore((state) => state.createAttempt);
   const saveAnswer = useQuizStore((state) => state.saveAnswer);
@@ -56,6 +61,26 @@ export function QuizPage() {
   const [activeAttemptId, setActiveAttemptId] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [resultAttemptId, setResultAttemptId] = useState<string | null>(null);
+  const [questionPreviewId, setQuestionPreviewId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!quizQuestionFocusId || !questions.some((question) => question.id === quizQuestionFocusId)) return;
+    setQuestionPreviewId(quizQuestionFocusId);
+    clearQuizQuestionFocus();
+  }, [clearQuizQuestionFocus, questions, quizQuestionFocusId]);
+
+  useEffect(() => {
+    if (!quizStudyQuestionIds?.length) return;
+    const selectedIds = quizStudyQuestionIds.filter((id) => questions.some((question) => question.id === id));
+    clearQuizStudy();
+    if (!selectedIds.length) return;
+    void (async () => {
+      const attempt = await createAttempt("Estudo da trilha", selectedIds);
+      setActiveAttemptId(attempt.id);
+      setCurrentIndex(0);
+      setScreen("taking");
+    })();
+  }, [clearQuizStudy, createAttempt, questions, quizStudyQuestionIds]);
 
   const questionById = useMemo(() => new Map(questions.map((question) => [question.id, question])), [questions]);
   const scopedQuestions = useMemo(() => questions.filter((question) => question.examId && (examFilter === "all" || question.examId === examFilter)), [questions, examFilter]);
@@ -76,6 +101,7 @@ export function QuizPage() {
   const editingQuestion = questions.find((question) => question.id === editingQuestionId);
   const duplicateExamRecord = exams.find((exam) => exam.id === duplicateExamId);
   const editingExam = exams.find((exam) => exam.id === editingExamId);
+  const questionPreview = questions.find((question) => question.id === questionPreviewId) ?? null;
 
   const topicStats = useMemo(() => getTopicStats(completedAttempts, questions), [completedAttempts, questions]);
 
@@ -276,7 +302,10 @@ export function QuizPage() {
       confirmDeletion={confirmDeletion}
       continueAttempt={continueAttempt}
       viewResult={viewResult}
-    />      <RetroModal open={questionModalOpen} onClose={() => setQuestionModalOpen(false)} title="Nova questão" subtitle="Cadastre uma questão e seu gabarito para usá-la nos simulados." size="xl" icon={<CircleHelp size={16} />}><QuestionForm exams={exams} defaultExamId={examFilter === "all" ? undefined : examFilter} onSubmit={addNewQuestion} onCancel={() => setQuestionModalOpen(false)} /></RetroModal>
+    />      <RetroModal open={Boolean(questionPreview)} onClose={() => setQuestionPreviewId(null)} title={questionPreview ? "Questão " + (questionPreview.order ?? "") : "Visualizar questão"} subtitle={questionPreview?.topic || questionPreview?.subject} size="lg" icon={<CircleHelp size={16} />}>
+        {questionPreview && <div className="p-5 space-y-4"><p className="text-[15px] leading-relaxed text-retro-text whitespace-pre-wrap">{questionPreview.statement}</p><div className="space-y-2">{questionPreview.options.map((option) => <div key={option.id} className="rounded-lg border border-retro-border p-3 text-[13px] text-retro-text"><strong className="text-retro-blue mr-2">{option.id}.</strong>{option.text}</div>)}</div>{questionPreview.explanation && <div className="border-t border-retro-border/60 pt-4 text-[13px] text-retro-text-dim whitespace-pre-wrap"><strong className="text-retro-text">Explicação:</strong>{" " + questionPreview.explanation}</div>}</div>}
+
+      </RetroModal><RetroModal open={questionModalOpen} onClose={() => setQuestionModalOpen(false)} title="Nova questão" subtitle="Cadastre uma questão e seu gabarito para usá-la nos simulados." size="xl" icon={<CircleHelp size={16} />}><QuestionForm exams={exams} defaultExamId={examFilter === "all" ? undefined : examFilter} onSubmit={addNewQuestion} onCancel={() => setQuestionModalOpen(false)} /></RetroModal>
       <RetroModal open={examModalOpen} onClose={() => setExamModalOpen(false)} title="Nova prova/vaga" subtitle="Crie o pai que receberá as questões." size="lg" icon={<BookOpenCheck size={16} />}><ExamForm onSubmit={addNewExam} onCancel={() => setExamModalOpen(false)} /></RetroModal>
       <RetroModal open={Boolean(editingExam)} onClose={() => setEditingExamId(null)} title="Editar prova/vaga" subtitle="Atualize os dados do agrupador sem mexer nas questões." size="lg" icon={<Pencil size={16} />}><ExamForm key={editingExamId ?? "none"} exam={editingExam} onSubmit={saveExamEdits} onCancel={() => setEditingExamId(null)} /></RetroModal>
       <DuplicateExamModal key={duplicateExamId ?? "none"} open={Boolean(duplicateExamRecord)} exam={duplicateExamRecord} onClose={() => setDuplicateExamId(null)} onSave={duplicateSelectedExam} />
