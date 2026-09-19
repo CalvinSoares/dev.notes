@@ -104,6 +104,27 @@ export function getRoadmapNodeAncestors(nodeId: string, nodes: StudyRoadmapNode[
   return ancestors;
 }
 
+export interface RoadmapImportItem {
+  title: string;
+  depth: number;
+}
+
+export function parseRoadmapImportText(text: string): RoadmapImportItem[] {
+  const rawLines = text.split(/\r?\n/);
+  const hasParts = rawLines.some((line) => /^\s*PARTE\s+\d+/i.test(line));
+  let hasSection = false;
+  return rawLines.map((raw) => {
+    const indentation = raw.match(/^\s*/)?.[0] ?? "";
+    const title = raw.replace(/^\s*[-*•]\s*/, "").replace(/^#+\s*/, "").trim();
+    const isPart = /^PARTE\s+\d+/i.test(title);
+    const isNumberedSection = /^\d+\.\s+/.test(title);
+    if (isNumberedSection) hasSection = true;
+    const inferredDepth = isPart ? 0 : isNumberedSection ? (hasParts ? 2 : 0) : hasSection ? (hasParts ? 4 : 2) : 0;
+    const explicitDepth = indentation.replace(/\t/g, "  ").length;
+    return { title, depth: Math.max(inferredDepth, explicitDepth) };
+  }).filter((item) => item.title);
+}
+
 export interface RoadmapMaterialProgress {
   total: number;
   completed: number;
