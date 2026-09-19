@@ -8,6 +8,8 @@ import { RetroButton } from "@/components/ui/RetroButton";
 import { SearchableDropdown } from "@/components/ui/SearchableDropdown";
 import { RetroModal } from "@/components/ui/RetroModal";
 
+const ROOT_PARENT_ID = "__root__";
+
 export type RoadmapForm = {
   title: string;
   description: string;
@@ -80,12 +82,19 @@ export function RoadmapFormModal({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <label className="block text-[12px] text-retro-comment">
             Status
-            <select value={form.status} onChange={(event) => set({ status: event.target.value as RoadmapForm["status"] })} className="retro-input w-full mt-1">
-              <option value="draft">rascunho</option>
-              <option value="active">ativa</option>
-              <option value="completed">concluída</option>
-              <option value="archived">arquivada</option>
-            </select>
+            <SearchableDropdown
+              items={[
+                { id: "draft", label: "rascunho" },
+                { id: "active", label: "ativa" },
+                { id: "completed", label: "concluída" },
+                { id: "archived", label: "arquivada" },
+              ]}
+              value={form.status}
+              onChange={(status) => set({ status: status as RoadmapForm["status"] })}
+              placeholder="Selecione o status..."
+              searchPlaceholder="Buscar status..."
+              charLimit={24}
+            />
           </label>
           <label className="block text-[12px] text-retro-comment">
             Início
@@ -128,7 +137,7 @@ export function NodeFormModal({
       title={editingId ? "Editar tópico" : "Novo tópico"}
       icon={<ListChecks size={17} />}
       accent="orange"
-      size="md"
+      size="lg"
       footer={
         <>
           <RetroButton onClick={onClose}>cancelar</RetroButton>
@@ -154,18 +163,36 @@ export function NodeFormModal({
           </label>
           <label className="block text-[12px] text-retro-comment">
             Tipo
-            <select value={form.kind} onChange={(event) => set({ kind: event.target.value as NodeForm["kind"] })} className="retro-input w-full mt-1">
-              <option value="topic">tópico</option>
-              <option value="subtopic">subtópico</option>
-            </select>
+            <SearchableDropdown
+              items={[
+                { id: "topic", label: "tópico" },
+                { id: "subtopic", label: "subtópico" },
+              ]}
+              value={form.kind}
+              onChange={(kind) => set({ kind: kind as NodeForm["kind"] })}
+              placeholder="Selecione o tipo..."
+              searchPlaceholder="Buscar tipo..."
+              charLimit={24}
+            />
           </label>
         </div>
         <label className="block text-[12px] text-retro-comment">
           Pertence a
-          <select value={form.parentId} onChange={(event) => set({ parentId: event.target.value })} className="retro-input w-full mt-1">
-            <option value="">raiz da trilha</option>
-            {nodes.filter((node) => !blockedParentIds.has(node.id)).sort((left, right) => left.order - right.order).map((node) => <option key={node.id} value={node.id}>{node.title}</option>)}
-          </select>
+          <SearchableDropdown
+            items={[
+              { id: ROOT_PARENT_ID, label: "raiz da trilha", description: "Tópico no nível principal" },
+              ...nodes
+                .filter((node) => !blockedParentIds.has(node.id))
+                .sort((left, right) => left.order - right.order)
+                .map((node) => ({ id: node.id, label: node.title, description: node.kind === "topic" ? "Tópico" : "Subtópico" })),
+            ]}
+            value={form.parentId || ROOT_PARENT_ID}
+            onChange={(parentId) => set({ parentId: parentId === ROOT_PARENT_ID ? "" : parentId })}
+            placeholder="Selecione o tópico pai..."
+            searchPlaceholder="Buscar tópico pai..."
+            empty="Nenhum tópico disponível."
+            charLimit={72}
+          />
         </label>
         <label className="block text-[12px] text-retro-comment">
           Descrição
@@ -204,7 +231,7 @@ export function LinkModal({
       title={"Vincular material" + (node ? " · " + node.title : "")}
       icon={<Link2 size={17} />}
       accent="purple"
-      size="md"
+      size="lg"
       footer={
         <>
           <RetroButton onClick={onClose}>cancelar</RetroButton>
