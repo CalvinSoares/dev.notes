@@ -119,14 +119,17 @@ export function RoadmapsPage() {
     setNodeModal({ open: false, editing: null });
   };
 
-  const importRoadmapTopics = async (text: string) => {
-    if (!selectedRoadmap) return;
+  const importRoadmapTopics = async (text: string, importedTitle: string) => {
+    let targetRoadmap = selectedRoadmap;
+    if (!targetRoadmap) {
+      targetRoadmap = await addRoadmap({ title: importedTitle, status: "draft" });
+      setSelectedId(targetRoadmap.id);
+    }
     const stack: Array<{ depth: number; id: string }> = [];
-    const lines = parseRoadmapImportText(text);
-    for (const line of lines) {
+    for (const line of parseRoadmapImportText(text)) {
       while (stack.length > 0 && stack[stack.length - 1].depth >= line.depth) stack.pop();
       const parentId = stack[stack.length - 1]?.id;
-      const created = await addNode({ roadmapId: selectedRoadmap.id, parentId, kind: parentId ? "subtopic" : "topic", title: line.title });
+      const created = await addNode({ roadmapId: targetRoadmap.id, parentId, kind: parentId ? "subtopic" : "topic", title: line.title });
       stack.push({ depth: line.depth, id: created.id });
     }
     setImportModalOpen(false);
@@ -147,7 +150,7 @@ export function RoadmapsPage() {
           <h1 className="text-retro-blue text-[15px] font-semibold flex items-center gap-2"><Route size={16} /> Roadmaps de estudos</h1>
           <p className="text-retro-comment text-[12px] mt-0.5">Organize o edital em uma trilha com progresso, anotações e material vinculado.</p>
         </div>
-        <RetroButton variant="primary" icon={<Plus size={14} />} onClick={() => setRoadmapModal({ open: true, editing: null })}>nova trilha</RetroButton>
+        <div className="flex gap-2"><RetroButton variant="ghost" icon={<FilePlus2 size={14} />} onClick={() => setImportModalOpen(true)}>importar edital</RetroButton><RetroButton variant="primary" icon={<Plus size={14} />} onClick={() => setRoadmapModal({ open: true, editing: null })}>nova trilha</RetroButton></div>
       </div>
 
       <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-[260px_minmax(0,1fr)_300px]">
@@ -163,7 +166,7 @@ export function RoadmapsPage() {
         </aside>
 
         <section className="min-h-[560px] overflow-y-auto retro-scrollbar bg-retro-bg p-4 md:p-6">
-          {!selectedRoadmap ? <div className="h-full flex items-center justify-center text-center"><div className="max-w-md"><Target size={44} className="mx-auto text-retro-blue mb-4" /><h2 className="text-retro-text text-xl font-semibold">Sua trilha começa aqui</h2><p className="mt-2 text-[13px] text-retro-comment">Crie uma roadmap e transforme o edital em passos pequenos.</p><div className="mt-5"><RetroButton variant="primary" icon={<Plus size={14} />} onClick={() => setRoadmapModal({ open: true, editing: null })}>criar primeira trilha</RetroButton></div></div></div> : <>
+          {!selectedRoadmap ? <div className="h-full flex items-center justify-center text-center"><div className="max-w-md"><Target size={44} className="mx-auto text-retro-blue mb-4" /><h2 className="text-retro-text text-xl font-semibold">Sua trilha começa aqui</h2><p className="mt-2 text-[13px] text-retro-comment">Crie uma roadmap e transforme o edital em passos pequenos.</p><div className="mt-5"><div className="flex justify-center gap-2"><RetroButton variant="ghost" icon={<FilePlus2 size={14} />} onClick={() => setImportModalOpen(true)}>importar edital</RetroButton><RetroButton variant="primary" icon={<Plus size={14} />} onClick={() => setRoadmapModal({ open: true, editing: null })}>criar primeira trilha</RetroButton></div></div></div></div> : <>
             <div className="flex items-start justify-between gap-3 flex-wrap border-b border-retro-border/60 pb-4">
               <div className="min-w-0"><div className="flex items-center gap-2"><h2 className="text-retro-text text-xl font-semibold truncate">{selectedRoadmap.title}</h2><span className="retro-badge">{selectedRoadmap.status}</span></div><p className="text-[13px] text-retro-comment mt-1">{selectedRoadmap.description || "Sem descrição."}</p>{selectedRoadmap.objective && <p className="text-[12px] text-retro-text-dim mt-2"><strong>objetivo:</strong> {selectedRoadmap.objective}</p>}</div>
               <div className="flex gap-2"><RetroButton variant="ghost" icon={<Pencil size={13} />} onClick={() => setRoadmapModal({ open: true, editing: selectedRoadmap })}>editar</RetroButton><RetroButton variant="ghost" icon={<Trash2 size={13} />} onClick={() => setRoadmapToDelete(selectedRoadmap)}>excluir</RetroButton></div>
