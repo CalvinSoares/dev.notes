@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Flashcard, LeetCodeProblem, StudyPhase } from "@core/types";
 import { BookOpenCheck, Code2 } from "lucide-react";
+import { SearchableChecklist } from "@/components/ui/SearchableChecklist";
 
 type PhaseInput = {
   title: string;
@@ -87,52 +88,12 @@ export function StudyPhaseForm({
         </p>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <SelectionList
-            title="Flashcards"
-            icon={<BookOpenCheck size={16} />}
-            count={flashcardIds.length}
-            empty="Nenhum flashcard criado ainda."
-          >
-            {cardsByTopic.map((card) => (
-              <label key={card.id} className="phase-choice">
-                <input
-                  type="checkbox"
-                  checked={flashcardIds.includes(card.id)}
-                  onChange={() => toggle(card.id, flashcardIds, setFlashcardIds)}
-                  className="sketch-checkbox"
-                />
-                <span className="min-w-0">
-                  <span className="block text-[14px] text-retro-text leading-snug">{card.question}</span>
-                  {card.tags.length > 0 && (
-                    <span className="block mt-1 text-[12px] text-retro-comment">{card.tags.join(" · ")}</span>
-                  )}
-                </span>
-              </label>
-            ))}
+          <SelectionList title="Flashcards" icon={<BookOpenCheck size={16} />} count={flashcardIds.length}>
+            <SearchableChecklist items={cardsByTopic.map((card) => ({ id: card.id, label: card.question, description: card.tags.join(" · ") }))} values={flashcardIds} onToggle={(id) => toggle(id, flashcardIds, setFlashcardIds)} empty="Nenhum flashcard criado ainda." placeholder="Buscar flashcards..." />
           </SelectionList>
 
-          <SelectionList
-            title="Desafios"
-            icon={<Code2 size={16} />}
-            count={problemIds.length}
-            empty="Nenhum desafio criado ainda."
-          >
-            {problems.map((problem) => (
-              <label key={problem.id} className="phase-choice">
-                <input
-                  type="checkbox"
-                  checked={problemIds.includes(problem.id)}
-                  onChange={() => toggle(problem.id, problemIds, setProblemIds)}
-                  className="sketch-checkbox"
-                />
-                <span className="min-w-0">
-                  <span className="block text-[14px] text-retro-text leading-snug">{problem.title}</span>
-                  <span className="block mt-1 text-[12px] text-retro-comment">
-                    {problem.difficulty}{problem.tags.length ? ` · ${problem.tags.join(" · ")}` : ""}
-                  </span>
-                </span>
-              </label>
-            ))}
+          <SelectionList title="Desafios" icon={<Code2 size={16} />} count={problemIds.length}>
+            <SearchableChecklist items={problems.map((problem) => ({ id: problem.id, label: problem.title, description: problem.difficulty + (problem.tags.length ? " · " + problem.tags.join(" · ") : "") }))} values={problemIds} onToggle={(id) => toggle(id, problemIds, setProblemIds)} empty="Nenhum desafio criado ainda." placeholder="Buscar desafios..." />
           </SelectionList>
         </div>
       </div>
@@ -164,14 +125,12 @@ function SelectionList({
   title,
   icon,
   count,
-  empty,
   children,
 }: {
   title: string;
   icon: React.ReactNode;
   count: number;
-  empty: string;
-  children: React.ReactNode[];
+  children: React.ReactNode;
 }) {
   return (
     <section className="border border-retro-border/60 rounded-xl overflow-hidden bg-retro-bgDark">
@@ -181,8 +140,8 @@ function SelectionList({
         </h3>
         <span className="text-[12px] text-retro-text-dim">{count} selecionados</span>
       </div>
-      <div className="max-h-64 overflow-y-auto retro-scrollbar p-2 space-y-1">
-        {children.length > 0 ? children : <p className="p-3 text-[13px] text-retro-comment">{empty}</p>}
+      <div className="p-2 space-y-1">
+        {children}
       </div>
     </section>
   );

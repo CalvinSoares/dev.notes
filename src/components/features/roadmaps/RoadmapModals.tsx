@@ -5,6 +5,7 @@ import type { StudyRoadmap, StudyRoadmapNode } from "@core/types/roadmap";
 import { useFlashcardStore } from "@/store/useFlashcardStore";
 import { useQuizStore } from "@/store/useQuizStore";
 import { RetroButton } from "@/components/ui/RetroButton";
+import { SearchableDropdown } from "@/components/ui/SearchableDropdown";
 import { RetroModal } from "@/components/ui/RetroModal";
 
 export type RoadmapForm = {
@@ -232,15 +233,15 @@ export function LinkModal({
             <span className="block mt-1 text-[12px] text-retro-text">questões</span>
           </button>
         </div>
-        <label className="block text-[12px] text-retro-comment">
-          Material
-          <select value={resourceId} onChange={(event) => setResourceId(event.target.value)} className="retro-input w-full mt-1">
-            <option value="">selecione...</option>
-            {type === "flashcard"
-              ? cards.map((card) => <option key={card.id} value={card.id}>{card.question}</option>)
-              : questions.map((question) => <option key={question.id} value={question.id}>{"#" + (question.order ?? "?") + " · " + (question.topic || question.subject)}</option>)}
-          </select>
-        </label>
+        <SearchableDropdown
+          items={type === "flashcard" ? cards.map((card) => ({ id: card.id, label: card.question, description: card.tags.join(" · ") })) : questions.map((question) => ({ id: question.id, label: "#" + (question.order ?? "?") + " · " + (question.topic || question.subject), description: question.statement }))}
+          value={resourceId}
+          onChange={setResourceId}
+          placeholder={type === "flashcard" ? "Selecione um flashcard..." : "Selecione uma questão..."}
+          searchPlaceholder={type === "flashcard" ? "Buscar flashcards..." : "Buscar questões..."}
+          empty={type === "flashcard" ? "Nenhum flashcard disponível." : "Nenhuma questão disponível."}
+          charLimit={84}
+        />
       </div>
     </RetroModal>
   );
