@@ -25,6 +25,7 @@ import { useLeetCodeStore } from "@/store/useLeetCodeStore";
 import { useAppStore } from "@/store/useAppStore";
 import { RetroButton } from "@/components/ui/RetroButton";
 import { ConfirmDialog, RetroModal } from "@/components/ui/RetroModal";
+import { SearchableChecklist } from "@/components/ui/SearchableChecklist";
 import type { StudyDiagram } from "@core/types";
 
 type DiagramNodeData = {
@@ -387,10 +388,7 @@ function LinkGroup({ title, items, values, onToggle }: { title: string; items: {
   return (
     <div>
       <h3 className="text-[12px] uppercase tracking-wider text-retro-comment mb-2">{title}</h3>
-      <div className="space-y-1 max-h-[150px] overflow-y-auto retro-scrollbar">
-        {items.map((item) => <label key={item.id} className="flex items-start gap-2 p-1.5 rounded hover:bg-retro-panelHover cursor-pointer text-[12px] text-retro-text-dim"><input type="checkbox" checked={values.includes(item.id)} onChange={() => onToggle(item.id)} className="sketch-checkbox mt-0.5" /><span className="line-clamp-2">{item.label}</span></label>)}
-        {items.length === 0 && <p className="text-[11px] text-retro-comment">Nenhum item disponível.</p>}
-      </div>
+      <SearchableChecklist items={items} values={values} onToggle={onToggle} empty="Nenhum item disponível." placeholder={"Buscar " + title.toLocaleLowerCase() + "..."} maxHeight="max-h-[150px]" />
     </div>
   );
 }
