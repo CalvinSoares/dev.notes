@@ -1,4 +1,7 @@
+import type { Flashcard, QuizAttempt } from "../types";
+
 import type {
+  StudyRoadmapLink,
   StudyRoadmapNode,
   StudyRoadmapNodeProgress,
   StudyRoadmapProgress,
@@ -99,6 +102,33 @@ export function getRoadmapNodeAncestors(nodeId: string, nodes: StudyRoadmapNode[
   }
 
   return ancestors;
+}
+
+export interface RoadmapMaterialProgress {
+  total: number;
+  completed: number;
+  percentage: number;
+  flashcardsTotal: number;
+  flashcardsCompleted: number;
+  questionsTotal: number;
+  questionsAnswered: number;
+}
+
+export function getRoadmapMaterialProgress(links: StudyRoadmapLink[], cards: Flashcard[], attempts: QuizAttempt[], nodeIds?: string[]): RoadmapMaterialProgress {
+  const scopedNodeIds = nodeIds ? new Set(nodeIds) : null;
+  const unique = new Map<string, StudyRoadmapLink>();
+  links.filter((link) => !scopedNodeIds || scopedNodeIds.has(link.nodeId)).forEach((link) => unique.set(link.resourceType + ":" + link.resourceId, link));
+  const cardMap = new Map(cards.map((card) => [card.id, card]));
+  const flashcardLinks = Array.from(unique.values()).filter((link) => link.resourceType === "flashcard");
+  const questionLinks = Array.from(unique.values()).filter((link) => link.resourceType === "quiz-question");
+  const flashcardsCompleted = flashcardLinks.filter((link) => {
+    const card = cardMap.get(link.resourceId);
+    return Boolean(card && (card.repetitions > 0 || card.lastReviewAt));
+  }).length;
+  const questionsAnswered = questionLinks.filter((link) => attempts.some((attempt) => Object.prototype.hasOwnProperty.call(attempt.answers, link.resourceId))).length;
+  const total = flashcardLinks.length + questionLinks.length;
+  const completed = flashcardsCompleted + questionsAnswered;
+  return { total, completed, percentage: total ? Math.round((completed / total) * 100) : 0, flashcardsTotal: flashcardLinks.length, flashcardsCompleted, questionsTotal: questionLinks.length, questionsAnswered };
 }
 
 export function normalizeRoadmapLinks<T extends { resourceType: string; resourceId: string }>(links: T[]) {
