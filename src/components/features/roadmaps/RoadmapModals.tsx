@@ -304,7 +304,7 @@ export function SubtopicQuickCreateModal({
             </label>
             <div className="rounded-lg border border-dashed border-retro-orange/70 bg-retro-orange/10 p-3 text-[11px] text-retro-comment">
               <strong className="text-retro-orange">Formato aceito</strong>
-              <p className="mt-1">Uma linha por item usando <code className="text-retro-text">Nome | Descrição</code>. Use dois espaços no começo da linha para criar um filho do item anterior. Linhas sem indentação ficam no mesmo nível.</p>
+              <p className="mt-1">Uma linha por item usando <code className="text-retro-text">Nome | Descrição</code>. Use dois espaços no começo da linha para criar um filho do item anterior. Linhas sem indentação ficam no mesmo nível. Blocos de código, fórmulas isoladas, setas e barras invertidas usadas como quebra são tratados como formatação.</p>
               <pre className="mt-2 overflow-x-auto rounded border border-retro-border/60 bg-retro-bg p-2 text-[11px] leading-relaxed text-retro-text">{"- Roteamento estático | Rotas manuais\n  - Tabela de rotas | Entradas e métricas\n- Roteamento dinâmico | Rotas aprendidas"}</pre>
             </div>
             <p className="text-[11px] text-retro-comment">{bulkPreview.length} {bulkPreview.length === 1 ? "subtópico reconhecido" : "subtópicos reconhecidos"} · descrições serão preservadas.</p>

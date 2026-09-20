@@ -111,24 +111,60 @@ export interface RoadmapImportItem {
 }
 
 export function parseRoadmapImportText(text: string): RoadmapImportItem[] {
-  const rawLines = text.split(/\r?\n/);
+  const normalizedText = text
+    .replace(/\u00a0/g, " ")
+    .replace(/&#x20;|&nbsp;/gi, " ")
+    .replace(/\\\s*(?=\S)/g, "\n");
+  const rawLines = normalizedText.split(/\r?\n/);
   const hasParts = rawLines.some((line) => /^\s*PARTE\s+\d+/i.test(line));
   let hasSection = false;
-  return rawLines.map((raw) => {
+  let inCodeBlock = false;
+  let codeLines: string[] = [];
+  const items: RoadmapImportItem[] = [];
+  const codeFence = String.fromCharCode(96).repeat(3);
+
+  const appendCodeToLastItem = (code: string) => {
+    if (!code || items.length === 0) return;
+    const last = items[items.length - 1];
+    const description = [last.description, code].filter(Boolean).join(" ").trim();
+    items[items.length - 1] = description ? { ...last, description } : last;
+  };
+
+  for (const raw of rawLines) {
+    const trimmedRaw = raw.trim();
+    if (trimmedRaw.startsWith(codeFence)) {
+      if (inCodeBlock) appendCodeToLastItem(codeLines.join(" ").trim());
+      inCodeBlock = !inCodeBlock;
+      codeLines = [];
+      continue;
+    }
+    if (inCodeBlock) {
+      if (trimmedRaw) codeLines.push(trimmedRaw);
+      continue;
+    }
+
     const indentation = raw.match(/^\s*/)?.[0] ?? "";
-    const content = raw.replace(/^\s*[-*•]\s*/, "").replace(/^#+\s*/, "").trim();
+    const content = raw.replace(/^\s*[-*•]\s*/, "").replace(/^#+\s*/, "").replace(/\\\s*$/, "").trim();
+    if (!content) continue;
+
     const [titlePart, ...descriptionParts] = content.split("|");
     const title = titlePart.trim();
     const description = descriptionParts.join("|").trim() || undefined;
+    const isFormattingOnly = /^[~|\\↔→←—–_.\s-]+$/.test(title);
+    const isStandaloneFormula = /^[Nn\d\s()+−*/.,=<>≤≥_^|\\-]+$/.test(title) && /[+\-−*/=]/.test(title);
+    if (!title || isFormattingOnly || isStandaloneFormula) continue;
+
     const isPart = /^PARTE\s+\d+/i.test(title);
     const isNumberedSection = /^\d+\.\s+/.test(title);
     if (isNumberedSection) hasSection = true;
     const inferredDepth = isPart ? 0 : isNumberedSection ? (hasParts ? 2 : 0) : hasSection ? (hasParts ? 4 : 2) : 0;
-    const explicitDepth = indentation.replace(/\t/g, "  ").length;
-    return description ? { title, description, depth: Math.max(inferredDepth, explicitDepth) } : { title, depth: Math.max(inferredDepth, explicitDepth) };
-  }).filter((item) => item.title);
-}
+    const depth = Math.max(inferredDepth, indentation.replace(/\t/g, "  ").length);
+    items.push(description ? { title, description, depth } : { title, depth });
+  }
 
+  if (inCodeBlock) appendCodeToLastItem(codeLines.join(" ").trim());
+  return items;
+}
 export interface RoadmapMaterialProgress {
   total: number;
   completed: number;

@@ -56,6 +56,17 @@ try {
     { title: "Consultas", depth: 2 },
     { title: "Redes", depth: 0 },
   ]);
+  const codeFence = String.fromCharCode(96).repeat(3);
+  const bulkItems = roadmap.parseRoadmapImportText("- Topologia em Malha | Conexões redundantes\n  - Malha Completa | Usa N(N−1)2 enlaces\n- Arquitetura Spine-and-Leaf | Rede Clos\n" + codeFence + "\nN−1\n" + codeFence + "\n↔");
+  assert.deepEqual(bulkItems.map((item) => ({ title: item.title, depth: item.depth })), [
+    { title: "Topologia em Malha", depth: 0 },
+    { title: "Malha Completa", depth: 2 },
+    { title: "Arquitetura Spine-and-Leaf", depth: 0 },
+  ]);
+  assert.equal(bulkItems[0].description, "Conexões redundantes");
+  assert.equal(bulkItems[1].description, "Usa N(N−1)2 enlaces");
+  assert.equal(bulkItems[2].description, "Rede Clos N−1");
+
   const materialProgress = roadmap.getRoadmapMaterialProgress([
     { id: "link-card", nodeId: "topic", resourceType: "flashcard", resourceId: "card-1", order: 0, createdAt: "2026-01-01" },
     { id: "link-question", nodeId: "topic", resourceType: "quiz-question", resourceId: "q1", order: 1, createdAt: "2026-01-01" },
