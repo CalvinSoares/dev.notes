@@ -43,7 +43,7 @@ interface QuizState {
   updateExam: (id: string, input: QuizExamInput) => Promise<void>;
   deleteExam: (id: string) => Promise<void>;
   duplicateExam: (id: string, title: string) => Promise<QuizExam | undefined>;
-  updateQuestion: (id: string, patch: Partial<Pick<QuizQuestion, "notes" | "examId" | "examName" | "order">>) => Promise<void>;
+  updateQuestion: (id: string, patch: Partial<Omit<QuizQuestion, "id" | "createdAt" | "updatedAt">>) => Promise<void>;
   initialize: () => Promise<void>;
   addQuestion: (input: QuizQuestionInput) => Promise<QuizQuestion>;
   deleteQuestion: (id: string) => Promise<void>;

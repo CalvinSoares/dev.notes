@@ -4,7 +4,7 @@ import { RetroBadge } from "@/components/ui/RetroBadge";
 import { RetroButton } from "@/components/ui/RetroButton";
 import { RetroModal } from "@/components/ui/RetroModal";
 import { detectProofVersion, parseQuestions, readAnswerKeyVariants, readPdfText, renderPdfPage, type ParsedPdfQuestion } from "@core/lib/pdf";
-import type { QuestionOptionId, QuizExam, QuizQuestion } from "@core/types";
+import type { QuestionOptionId, QuizExam, QuizQuestion, QuizQuestionOption } from "@core/types";
 
 const optionIds: QuestionOptionId[] = ["A", "B", "C", "D", "E"];
 import type { QuizExamInput, QuizQuestionInput } from "@/store/useQuizStore";
@@ -119,17 +119,20 @@ export function ExamForm({ exam, onSubmit, onCancel }: { exam?: QuizExam; onSubm
     <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 border-t border-retro-border pt-4"><span className="text-[12px] text-retro-comment">{canSave ? (editing ? "Pronto para salvar." : "Pronto para criar a prova.") : "Informe nome, concurso e vaga/cargo."}</span><div className="flex justify-end gap-2"><RetroButton type="button" onClick={onCancel}>cancelar</RetroButton><RetroButton type="submit" variant="primary" disabled={!canSave || saving} icon={editing ? <Save size={15} /> : <Plus size={15} />}>{saving ? (editing ? "salvando..." : "criando...") : (editing ? "salvar alterações" : "criar prova/vaga")}</RetroButton></div></div>
   </form>;
 }
-export function QuestionForm({ onSubmit, onCancel, exams, defaultExamId }: { onSubmit: (data: QuizQuestionInput) => Promise<void>; onCancel: () => void; exams: QuizExam[]; defaultExamId?: string }) {
-  const [statement, setStatement] = useState("");
-  const [examId, setExamId] = useState(defaultExamId ?? exams[0]?.id ?? "");
-  const [subject, setSubject] = useState("");
-  const [topic, setTopic] = useState("");
-  const [explanation, setExplanation] = useState("");
-  const [sourceName, setSourceName] = useState("");
-  const [sourcePage, setSourcePage] = useState("");
-  const [correctOption, setCorrectOption] = useState<QuestionOptionId>("A");
-  const [options, setOptions] = useState<Record<QuestionOptionId, string>>({ A: "", B: "", C: "", D: "", E: "" });
+export function QuestionForm({ onSubmit, onCancel, exams, defaultExamId, question }: { onSubmit: (data: QuizQuestionInput) => Promise<void>; onCancel: () => void; exams: QuizExam[]; defaultExamId?: string; question?: QuizQuestion }) {
+  const [statement, setStatement] = useState(question?.statement ?? "");
+  const [examId, setExamId] = useState(question?.examId ?? defaultExamId ?? exams[0]?.id ?? "");
+  const [subject, setSubject] = useState(question?.subject ?? "");
+  const [topic, setTopic] = useState(question?.topic ?? "");
+  const [explanation, setExplanation] = useState(question?.explanation ?? "");
+  const [notes, setNotes] = useState(question?.notes ?? "");
+  const [sourceName, setSourceName] = useState(question?.sourceName ?? "");
+  const [sourcePage, setSourcePage] = useState(question?.sourcePage ? String(question.sourcePage) : "");
+  const [order, setOrder] = useState(question?.order ? String(question.order) : "");
+  const [correctOption, setCorrectOption] = useState<QuestionOptionId>(question?.correctOption ?? "A");
+  const [options, setOptions] = useState<Record<QuestionOptionId, string>>(() => Object.fromEntries(optionIds.map((id) => [id, question?.options.find((option) => option.id === id)?.text ?? ""])) as Record<QuestionOptionId, string>);
   const [saving, setSaving] = useState(false);
+  const editing = Boolean(question);
 
   const updateOption = (id: QuestionOptionId, value: string) => setOptions((current) => ({ ...current, [id]: value }));
   const filledOptions = optionIds.filter((id) => options[id].trim());
@@ -140,64 +143,61 @@ export function QuestionForm({ onSubmit, onCancel, exams, defaultExamId }: { onS
     if (!canSave) return;
     const cleanOptions = optionIds.map((id) => ({ id, text: options[id].trim() })).filter((option) => option.text);
     setSaving(true);
-    await onSubmit({
-      statement: statement.trim(),
-      options: cleanOptions,
-      correctOption,
-      explanation: explanation.trim() || undefined,
-      examId,
-      examName: exams.find((exam) => exam.id === examId)?.title,
-      subject: subject.trim(),
-      topic: topic.trim(),
-      sourceName: sourceName.trim() || undefined,
-      sourcePage: sourcePage ? Number(sourcePage) : undefined,
-    });
-    setSaving(false);
+    try {
+      await onSubmit({
+        statement: statement.trim(),
+        options: cleanOptions,
+        correctOption,
+        notes: notes.trim() || undefined,
+        explanation: explanation.trim() || undefined,
+        examId,
+        order: order ? Number(order) : undefined,
+        examName: exams.find((exam) => exam.id === examId)?.title,
+        subject: subject.trim(),
+        topic: topic.trim(),
+        sourceName: sourceName.trim() || undefined,
+        sourcePage: sourcePage ? Number(sourcePage) : undefined,
+        visualImage: question?.visualImage,
+        visualImages: question?.visualImages,
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <form id="quiz-question-form" onSubmit={submit} className="p-5 md:p-6 space-y-6">
       <div className="flex gap-3 items-start p-4 bg-retro-panelHover border border-retro-border rounded-wobbly text-[13px] text-retro-text-dim">
         <CircleHelp size={18} className="text-retro-blue shrink-0 mt-0.5" />
-        <p>Preencha o contexto, o enunciado e pelo menos duas alternativas. Escolha a resposta correta clicando na letra da alternativa.</p>
+        <p>{editing ? "Atualize qualquer parte da questão, inclusive a prova, o gabarito e a ordem em que ela aparece." : "Preencha o contexto, o enunciado e pelo menos duas alternativas. Escolha a resposta correta clicando na letra da alternativa."}</p>
       </div>
 
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3"><h3 className="font-semibold text-retro-text">Contexto da questão</h3><span className="text-[12px] text-retro-comment">campos com * são obrigatórios</span></div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-[13px] text-retro-text-dim sm:col-span-2">Prova/vaga *<select required value={examId} onChange={(event) => setExamId(event.target.value)} className="retro-input mt-1"><option value="">selecione a prova/vaga</option>{exams.map((exam) => <option key={exam.id} value={exam.id}>{exam.title}</option>)}</select></label><label className="text-[13px] text-retro-text-dim">Disciplina *
-            <input required value={subject} onChange={(event) => setSubject(event.target.value)} className="retro-input mt-1" placeholder="Ex.: Conhecimentos específicos" />
-          </label>
-          <label className="text-[13px] text-retro-text-dim">Tópico *
-            <input required value={topic} onChange={(event) => setTopic(event.target.value)} className="retro-input mt-1" placeholder="Ex.: Redes TCP/IP" />
-          </label>
-          <label className="text-[13px] text-retro-text-dim">Arquivo de origem
-            <input value={sourceName} onChange={(event) => setSourceName(event.target.value)} className="retro-input mt-1" placeholder="Ex.: prova-ufrrj.pdf" />
-          </label>
-          <label className="text-[13px] text-retro-text-dim">Página do PDF
-            <input min="1" type="number" value={sourcePage} onChange={(event) => setSourcePage(event.target.value)} className="retro-input mt-1" placeholder="Ex.: 12" />
-          </label>
+          <label className="text-[13px] text-retro-text-dim sm:col-span-2">Prova/vaga *<select required value={examId} onChange={(event) => setExamId(event.target.value)} className="retro-input mt-1"><option value="">selecione a prova/vaga</option>{exams.map((exam) => <option key={exam.id} value={exam.id}>{exam.title}</option>)}</select></label>
+          <label className="text-[13px] text-retro-text-dim">Disciplina *<input required value={subject} onChange={(event) => setSubject(event.target.value)} className="retro-input mt-1" placeholder="Ex.: Conhecimentos específicos" /></label>
+          <label className="text-[13px] text-retro-text-dim">Tópico *<input required value={topic} onChange={(event) => setTopic(event.target.value)} className="retro-input mt-1" placeholder="Ex.: Redes TCP/IP" /></label>
+          <label className="text-[13px] text-retro-text-dim">Arquivo de origem<input value={sourceName} onChange={(event) => setSourceName(event.target.value)} className="retro-input mt-1" placeholder="Ex.: prova-ufrrj.pdf" /></label>
+          <label className="text-[13px] text-retro-text-dim">Página do PDF<input min="1" type="number" value={sourcePage} onChange={(event) => setSourcePage(event.target.value)} className="retro-input mt-1" placeholder="Ex.: 12" /></label>
+          <label className="text-[13px] text-retro-text-dim">Número da questão<input min="1" type="number" value={order} onChange={(event) => setOrder(event.target.value)} className="retro-input mt-1" placeholder="Ex.: 39" /></label>
         </div>
       </section>
 
-      <section className="space-y-2">
-        <label className="block text-[13px] text-retro-text-dim">Enunciado *
-          <textarea required value={statement} onChange={(event) => setStatement(event.target.value)} className="retro-input mt-1 min-h-36 leading-relaxed" placeholder="Cole ou escreva a questão aqui." />
-        </label>
-      </section>
+      <label className="block text-[13px] text-retro-text-dim">Enunciado *<textarea required value={statement} onChange={(event) => setStatement(event.target.value)} className="retro-input mt-1 min-h-36 leading-relaxed" placeholder="Cole ou escreva a questão aqui." /></label>
 
       <fieldset className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2"><legend className="font-semibold text-retro-text">Alternativas *</legend><span className="text-[12px] text-retro-comment">{filledOptions.length}/5 preenchidas · selecione o gabarito</span></div>
         <div className="space-y-2.5">
           {optionIds.map((id) => {
             const isCorrect = correctOption === id;
-            return <div key={id} className={`flex items-stretch gap-2 rounded-wobbly border-2 p-2 transition-colors ${isCorrect ? "border-retro-green bg-retro-green/10" : "border-retro-border bg-retro-panel"}`}>
-              <label className={`flex w-11 cursor-pointer items-center justify-center rounded font-bold transition-colors ${isCorrect ? "bg-retro-green text-retro-bgDark" : "bg-retro-panelHover text-retro-blue hover:bg-retro-blue/15"}`} title={`Marcar ${id} como correta`}>
+            return <div key={id} className={"flex min-w-0 items-stretch gap-2 overflow-hidden rounded-wobbly border-2 p-2 transition-colors " + (isCorrect ? "border-retro-green bg-retro-green/10" : "border-retro-border bg-retro-panel")}>
+              <label className={"flex w-11 shrink-0 cursor-pointer items-center justify-center rounded font-bold transition-colors " + (isCorrect ? "bg-retro-green text-retro-bgDark" : "bg-retro-panelHover text-retro-blue hover:bg-retro-blue/15")} title={"Marcar " + id + " como correta"}>
                 <input type="radio" name="correct-option" value={id} checked={isCorrect} onChange={() => setCorrectOption(id)} className="sr-only" />
                 {id}
               </label>
-              <input value={options[id]} onChange={(event) => updateOption(id, event.target.value)} className="retro-input flex-1 !border-0 !bg-transparent focus:!ring-0" placeholder={`Texto da alternativa ${id}`} />
-              {isCorrect && <span className="hidden sm:flex items-center px-2 text-[12px] font-semibold text-retro-green">gabarito</span>}
+              <input value={options[id]} onChange={(event) => updateOption(id, event.target.value)} className="retro-input min-w-0 w-0 flex-1 !border-0 !bg-transparent focus:!ring-0" placeholder={"Texto da alternativa " + id} />
+              <span className="hidden w-16 shrink-0 items-center justify-center px-1 text-center text-[12px] font-semibold text-retro-green sm:flex">{isCorrect ? "gabarito" : ""}</span>
             </div>;
           })}
         </div>
@@ -208,14 +208,83 @@ export function QuestionForm({ onSubmit, onCancel, exams, defaultExamId }: { onS
         <div className="px-4 pb-4"><textarea value={explanation} onChange={(event) => setExplanation(event.target.value)} className="retro-input min-h-24" placeholder="Explique por que a alternativa correta é a resposta." /></div>
       </details>
 
+      <details className="group border border-retro-border rounded-wobbly bg-retro-panel overflow-hidden" open={Boolean(notes)}>
+        <summary className="cursor-pointer px-4 py-3 text-[13px] font-medium text-retro-text hover:bg-retro-panelHover">Anotação privada <span className="font-normal text-retro-comment">(opcional)</span></summary>
+        <div className="px-4 pb-4"><textarea value={notes} onChange={(event) => setNotes(event.target.value)} className="retro-input min-h-24" placeholder="Macete, dúvida ou ponto para revisar." /></div>
+      </details>
+
       <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-retro-border pt-4">
-        <p className="text-[12px] text-retro-comment">{canSave ? "Tudo certo para salvar esta questão." : "Inclua o enunciado, disciplina, tópico e duas alternativas."}</p>
-        <div className="flex justify-end gap-2"><RetroButton type="button" onClick={onCancel}>cancelar</RetroButton><RetroButton type="submit" variant="primary" icon={<Plus size={15} />} disabled={saving || !canSave}>{saving ? "salvando..." : "salvar questão"}</RetroButton></div>
+        <p className="text-[12px] text-retro-comment">{canSave ? (editing ? "Tudo certo para salvar as alterações." : "Tudo certo para salvar esta questão.") : "Inclua o enunciado, disciplina, tópico e duas alternativas."}</p>
+        <div className="flex justify-end gap-2"><RetroButton type="button" onClick={onCancel}>cancelar</RetroButton><RetroButton type="submit" variant="primary" icon={editing ? <Save size={15} /> : <Plus size={15} />} disabled={saving || !canSave}>{saving ? "salvando..." : (editing ? "salvar alterações" : "salvar questão")}</RetroButton></div>
       </div>
     </form>
   );
 }
 
+export function parseQuickQuestionText(raw: string): { statement: string; options: QuizQuestionOption[] } {
+  const normalized = raw.replace(/\r\n?/g, "\n").replace(/\u00a0/g, " ").replace(/\\\s*/g, "\n").trim();
+  const marker = /(?:^|\n)\s*\(([A-E])\)\s*/gi;
+  const matches = Array.from(normalized.matchAll(marker));
+  if (!matches.length) return { statement: normalized, options: [] };
+  const firstIndex = matches[0].index ?? 0;
+  const statement = normalized.slice(0, firstIndex).trim();
+  const options = matches.map((match, index) => {
+    const start = (match.index ?? 0) + match[0].length;
+    const end = index + 1 < matches.length ? (matches[index + 1].index ?? normalized.length) : normalized.length;
+    return { id: match[1].toUpperCase() as QuestionOptionId, text: normalized.slice(start, end).trim() };
+  }).filter((option) => option.text);
+  return { statement, options };
+}
+
+export function QuickQuestionForm({ onSubmit, onCancel, exams, defaultExamId }: { onSubmit: (data: QuizQuestionInput) => Promise<void>; onCancel: () => void; exams: QuizExam[]; defaultExamId?: string }) {
+  const [rawText, setRawText] = useState("");
+  const [examId, setExamId] = useState(defaultExamId ?? exams[0]?.id ?? "");
+  const [subject, setSubject] = useState("Conhecimentos específicos");
+  const [topic, setTopic] = useState("Revisão rápida");
+  const [correctOption, setCorrectOption] = useState<QuestionOptionId>("A");
+  const [saving, setSaving] = useState(false);
+  const parsed = parseQuickQuestionText(rawText);
+  const validCorrectOption = parsed.options.some((option) => option.id === correctOption);
+  const canSave = Boolean(examId && subject.trim() && topic.trim() && parsed.statement && parsed.options.length >= 2 && validCorrectOption);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!canSave) return;
+    setSaving(true);
+    try {
+      await onSubmit({
+        examId,
+        statement: parsed.statement,
+        options: parsed.options,
+        correctOption,
+        subject: subject.trim(),
+        topic: topic.trim(),
+        examName: exams.find((exam) => exam.id === examId)?.title,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return <form onSubmit={submit} className="p-5 md:p-6 space-y-5">
+    <div className="flex gap-3 items-start rounded-wobbly border border-retro-blue/40 bg-retro-blue/10 p-4 text-[13px] text-retro-text-dim">
+      <CircleHelp size={18} className="mt-0.5 shrink-0 text-retro-blue" />
+      <p>Cole o enunciado completo com as alternativas no formato <strong className="text-retro-text">(A) texto</strong> até <strong className="text-retro-text">(E) texto</strong>. O sistema separa as partes e mostra uma prévia antes de salvar.</p>
+    </div>
+    <label className="block text-[13px] text-retro-text-dim">Texto da questão *<textarea autoFocus required value={rawText} onChange={(event) => setRawText(event.target.value)} className="retro-input mt-1 min-h-48 leading-relaxed" placeholder={"Enunciado...\n\n(A) Primeira alternativa\n(B) Segunda alternativa\n(C) Terceira alternativa\n(D) Quarta alternativa\n(E) Quinta alternativa"} /></label>
+    <div className="grid gap-3 sm:grid-cols-2">
+      <label className="text-[13px] text-retro-text-dim sm:col-span-2">Prova/vaga *<select required value={examId} onChange={(event) => setExamId(event.target.value)} className="retro-input mt-1"><option value="">selecione a prova/vaga</option>{exams.map((exam) => <option key={exam.id} value={exam.id}>{exam.title}</option>)}</select></label>
+      <label className="text-[13px] text-retro-text-dim">Disciplina<input value={subject} onChange={(event) => setSubject(event.target.value)} className="retro-input mt-1" /></label>
+      <label className="text-[13px] text-retro-text-dim">Tópico<input value={topic} onChange={(event) => setTopic(event.target.value)} className="retro-input mt-1" /></label>
+    </div>
+    <section className="rounded-wobbly border border-retro-border bg-retro-panel p-4">
+      <div className="flex items-center justify-between gap-3"><h3 className="font-semibold text-retro-text">Prévia reconhecida</h3><span className="text-[12px] text-retro-comment">{parsed.options.length} alternativa(s)</span></div>
+      {parsed.statement ? <p className="mt-3 whitespace-pre-wrap text-[13px] leading-relaxed text-retro-text">{parsed.statement}</p> : <p className="mt-3 text-[13px] text-retro-comment">Cole um texto para visualizar o enunciado.</p>}
+      {parsed.options.length > 0 && <div className="mt-3 space-y-2">{parsed.options.map((option) => <label key={option.id} className={"flex cursor-pointer items-start gap-2 rounded border p-2 text-[13px] " + (correctOption === option.id ? "border-retro-green bg-retro-green/10" : "border-retro-border")}><input type="radio" name="quick-correct-option" checked={correctOption === option.id} onChange={() => setCorrectOption(option.id)} className="mt-1" /><span><strong className="text-retro-blue">{option.id}.</strong> {option.text}</span></label>)}</div>}
+    </section>
+    <div className="flex flex-col-reverse gap-3 border-t border-retro-border pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-[12px] text-retro-comment">{canSave ? "Tudo certo para cadastrar." : "Cole um enunciado com pelo menos duas alternativas e escolha o gabarito."}</p><div className="flex justify-end gap-2"><RetroButton type="button" onClick={onCancel}>cancelar</RetroButton><RetroButton type="submit" variant="primary" disabled={!canSave || saving} icon={<Plus size={15} />}>{saving ? "cadastrando..." : "cadastrar questão"}</RetroButton></div></div>
+  </form>;
+}
 export function PdfImportModal({ open, onClose, onImport, exams }: { open: boolean; onClose: () => void; onImport: (questions: QuizQuestionInput[]) => Promise<void>; exams: QuizExam[] }) {
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [answerKeyFile, setAnswerKeyFile] = useState<File | null>(null);
