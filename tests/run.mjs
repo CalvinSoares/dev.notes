@@ -11,6 +11,7 @@ try {
   const quiz = await server.ssrLoadModule("/src/@core/lib/quiz.ts");
   const pdf = await server.ssrLoadModule("/src/@core/lib/pdf.ts");
   const roadmap = await server.ssrLoadModule("/src/@core/lib/roadmap.ts");
+  const modals = await server.ssrLoadModule("/src/components/features/quiz/QuizModals.tsx");
   const question = (id, topic = "redes") => ({ id, examId: "exam-1", statement: "enunciado", options: [{ id: "A", text: "sim" }, { id: "B", text: "não" }], correctOption: "A", subject: "TI", topic, createdAt: "2026-01-01", updatedAt: "2026-01-01" });
 
   assert.equal(quiz.getAttemptStatus({ status: "completed" }), "completed");
@@ -22,6 +23,11 @@ try {
   assert.equal(quiz.getResumeQuestionIndex({ ...attempt, currentQuestionIndex: undefined }), 1);
   assert.deepEqual(quiz.getAttemptMetrics({ ...attempt, correctCount: 1 }), { total: 3, answered: 1, unanswered: 2, correct: 1, wrong: 0, rate: 33 });
   assert.equal(quiz.calculateAttemptCorrectCount(attempt, [question("q1"), question("q2")]), 1);
+
+  const quickQuestion = modals.parseQuickQuestionText("Enunciado de teste.\n(A) 254\n(B) 510\n(C) 512\n(D) 1.022\n(E) 2.046");
+  assert.equal(quickQuestion.statement, "Enunciado de teste.");
+  assert.deepEqual(quickQuestion.options.map((option) => option.id), ["A", "B", "C", "D", "E"]);
+  assert.equal(quickQuestion.options[1].text, "510");
 
   const answerKey = pdf.parseAnswerKey("1 - A\n2 - C");
   assert.equal(answerKey.get(1), "A");
