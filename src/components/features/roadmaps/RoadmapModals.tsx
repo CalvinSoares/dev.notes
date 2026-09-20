@@ -207,37 +207,37 @@ export function NodeFormModal({
   );
 }
 
-export type DiagramQuickCreateForm = {
+export type SubtopicQuickCreateForm = {
   title: string;
   description: string;
   notes: string;
 };
 
-export function DiagramQuickCreateModal({
+export function SubtopicQuickCreateModal({
   open,
-  node,
+  parent,
   initial,
   onClose,
   onSave,
 }: {
   open: boolean;
-  node: StudyRoadmapNode | null;
-  initial: DiagramQuickCreateForm;
+  parent: StudyRoadmapNode | null;
+  initial: SubtopicQuickCreateForm;
   onClose: () => void;
-  onSave: (form: DiagramQuickCreateForm) => Promise<void>;
+  onSave: (form: SubtopicQuickCreateForm) => Promise<void>;
 }) {
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
-  const set = (patch: Partial<DiagramQuickCreateForm>) => setForm((current) => ({ ...current, ...patch }));
+  const set = (patch: Partial<SubtopicQuickCreateForm>) => setForm((current) => ({ ...current, ...patch }));
 
   return (
     <RetroModal
       open={open}
       onClose={onClose}
-      title="Novo fluxograma"
-      subtitle={node ? "Criado a partir de “" + node.title + "”" : "Crie um fluxograma de estudo."}
-      icon={<GitBranch size={17} />}
-      accent="blue"
+      title="Novo subtópico"
+      subtitle={parent ? "Dentro de “" + parent.title + "”" : "Adicione um nível à trilha."}
+      icon={<ListChecks size={17} />}
+      accent="orange"
       size="md"
       footer={
         <>
@@ -251,7 +251,7 @@ export function DiagramQuickCreateModal({
               setSaving(false);
             }}
           >
-            criar e abrir
+            criar subtópico
           </RetroButton>
         </>
       }
@@ -259,15 +259,15 @@ export function DiagramQuickCreateModal({
       <div className="p-5 space-y-4">
         <label className="block text-[12px] text-retro-comment">
           Nome *
-          <input autoFocus maxLength={120} value={form.title} onChange={(event) => set({ title: event.target.value })} className="retro-input w-full mt-1" placeholder="Ex.: Fluxo de autenticação" />
+          <input autoFocus maxLength={160} value={form.title} onChange={(event) => set({ title: event.target.value })} className="retro-input w-full mt-1" placeholder="Ex.: Protocolos de roteamento" />
         </label>
         <label className="block text-[12px] text-retro-comment">
           Descrição
-          <textarea maxLength={500} value={form.description} onChange={(event) => set({ description: event.target.value })} className="retro-input w-full mt-1 min-h-20" placeholder="O que este fluxograma explica?" />
+          <textarea maxLength={600} value={form.description} onChange={(event) => set({ description: event.target.value })} className="retro-input w-full mt-1 min-h-20" placeholder="O que entra neste subtópico?" />
         </label>
         <label className="block text-[12px] text-retro-comment">
           Anotação
-          <textarea maxLength={2000} value={form.notes} onChange={(event) => set({ notes: event.target.value })} className="retro-input w-full mt-1 min-h-24" placeholder="Lembretes, contexto ou pontos para revisar..." />
+          <textarea maxLength={2000} value={form.notes} onChange={(event) => set({ notes: event.target.value })} className="retro-input w-full mt-1 min-h-24" placeholder="Resumo, fontes ou lembretes..." />
         </label>
       </div>
     </RetroModal>

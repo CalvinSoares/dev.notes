@@ -140,7 +140,6 @@ export function DiagramsPage() {
   const selected = useMemo(() => diagrams.find((diagram) => diagram.id === selectedId) ?? null, [diagrams, selectedId]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [notes, setNotes] = useState("");
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(starterNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(starterEdges);
   const [phaseIds, setPhaseIds] = useState<string[]>([]);
@@ -170,7 +169,6 @@ export function DiagramsPage() {
     if (!selected) return;
     setTitle(selected.title);
     setDescription(selected.description ?? "");
-    setNotes(selected.notes ?? "");
     setNodes(normalizeNodes(selected.nodes));
     setEdges(selected.edges as Edge[]);
     setPhaseIds(selected.phaseIds);
@@ -182,7 +180,6 @@ export function DiagramsPage() {
     setSelectedId(null);
     setTitle("Novo fluxograma");
     setDescription("");
-    setNotes("");
     setNodes(starterNodes);
     setEdges(starterEdges);
     setPhaseIds([]);
@@ -205,9 +202,9 @@ export function DiagramsPage() {
 
   const saveMetadata = async () => {
     if (metadataMode === "edit" && selected) {
-      await updateDiagram(selected.id, { title: title.trim() || "Fluxograma sem título", description: description.trim() || undefined, notes: notes.trim() || undefined });
+      await updateDiagram(selected.id, { title: title.trim() || "Fluxograma sem título", description: description.trim() || undefined });
     } else {
-      const created = await addDiagram({ title: title.trim() || "Fluxograma sem título", description: description.trim() || undefined, notes: notes.trim() || undefined, nodes, edges, phaseIds, flashcardIds, problemIds });
+      const created = await addDiagram({ title: title.trim() || "Fluxograma sem título", description: description.trim() || undefined, nodes, edges, phaseIds, flashcardIds, problemIds });
       setSelectedId(created.id);
       await syncBacklinks(created.id, flashcardIds, problemIds);
     }
@@ -337,7 +334,6 @@ export function DiagramsPage() {
     const input = {
       title: title.trim() || "Fluxograma sem título",
       description: description.trim() || undefined,
-      notes: notes.trim() || undefined,
       nodes,
       edges,
       phaseIds,
@@ -464,7 +460,7 @@ export function DiagramsPage() {
       </div>
 
       <RetroModal open={metadataOpen} onClose={() => setMetadataOpen(false)} title={metadataMode === "create" ? "Novo fluxograma" : "Editar detalhes"} subtitle="Defina o nome e o contexto do desenho." accent="blue" size="md" footer={<><RetroButton variant="default" onClick={() => setMetadataOpen(false)}>cancelar</RetroButton><RetroButton variant="primary" onClick={saveMetadata}>{metadataMode === "create" ? "criar e abrir editor" : "salvar detalhes"}</RetroButton></>}>
-        <div className="p-5 space-y-4"><label className="block text-[13px] font-semibold text-retro-text">Nome<input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="ex: Fluxo do Two Sum" className="retro-input w-full mt-1" autoFocus /></label><label className="block text-[13px] font-semibold text-retro-text">Descrição<textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="O que este desenho explica?" className="retro-input w-full mt-1 min-h-[100px]" /></label><label className="block text-[13px] font-semibold text-retro-text">Anotação<textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Lembretes ou contexto para revisar..." className="retro-input w-full mt-1 min-h-[100px]" /></label></div>
+        <div className="p-5 space-y-4"><label className="block text-[13px] font-semibold text-retro-text">Nome<input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="ex: Fluxo do Two Sum" className="retro-input w-full mt-1" autoFocus /></label><label className="block text-[13px] font-semibold text-retro-text">Descrição<textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="O que este desenho explica?" className="retro-input w-full mt-1 min-h-[100px]" /></label></div>
       </RetroModal>
 
       <RetroModal open={linkOpen} onClose={() => setLinkOpen(false)} title="Vincular conteúdo" subtitle="O mesmo fluxograma pode ser usado em vários contextos." accent="purple" size="lg" footer={<RetroButton variant="primary" onClick={() => setLinkOpen(false)}>concluir</RetroButton>}>

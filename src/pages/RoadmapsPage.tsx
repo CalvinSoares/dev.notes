@@ -15,7 +15,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { ProgressBar, RoadmapTree } from "@/components/features/roadmaps/RoadmapTree";
-import { DiagramQuickCreateModal, LinkModal, NodeFormModal, RoadmapFormModal, type DiagramQuickCreateForm, type NodeForm, type RoadmapForm } from "@/components/features/roadmaps/RoadmapModals";
+import { LinkModal, NodeFormModal, RoadmapFormModal, SubtopicQuickCreateModal, type NodeForm, type RoadmapForm, type SubtopicQuickCreateForm } from "@/components/features/roadmaps/RoadmapModals";
 import { RoadmapImportModal } from "@/components/features/roadmaps/RoadmapImportModal";
 import { getRoadmapMaterialProgress, getRoadmapProgress, parseRoadmapImportText } from "@core/lib/roadmap";
 import type { StudyRoadmap, StudyRoadmapLink, StudyRoadmapNode } from "@core/types/roadmap";
@@ -65,7 +65,6 @@ export function RoadmapsPage() {
   const questions = useQuizStore((state) => state.questions);
   const attempts = useQuizStore((state) => state.attempts);
   const diagrams = useDiagramStore((state) => state.diagrams);
-  const addDiagram = useDiagramStore((state) => state.addDiagram);
   const openFlashcard = useAppStore((state) => state.openFlashcard);
   const openQuizQuestion = useAppStore((state) => state.openQuizQuestion);
   const startFlashcardStudy = useAppStore((state) => state.startFlashcardStudy);
@@ -80,12 +79,12 @@ export function RoadmapsPage() {
   const [roadmapModal, setRoadmapModal] = useState<{ open: boolean; editing: StudyRoadmap | null }>({ open: false, editing: null });
   const [nodeModal, setNodeModal] = useState<{ open: boolean; editing: StudyRoadmapNode | null }>({ open: false, editing: null });
   const [linkModalOpen, setLinkModalOpen] = useState(false);
-  const [diagramModalOpen, setDiagramModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [nodeToDelete, setNodeToDelete] = useState<StudyRoadmapNode | null>(null);
   const [roadmapToDelete, setRoadmapToDelete] = useState<StudyRoadmap | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const emptyDiagramForm: DiagramQuickCreateForm = { title: "", description: "", notes: "" };
+  const [subtopicParent, setSubtopicParent] = useState<StudyRoadmapNode | null>(null);
+  const [subtopicModalOpen, setSubtopicModalOpen] = useState(false);
 
   const selectedRoadmap = roadmaps.find((roadmap) => roadmap.id === selectedId) ?? roadmaps[0] ?? null;
   const roadmapNodes = useMemo(() => selectedRoadmap ? nodes.filter((node) => node.roadmapId === selectedRoadmap.id) : [], [nodes, selectedRoadmap]);
@@ -109,12 +108,19 @@ export function RoadmapsPage() {
     return question ? "Questão " + (question.order ?? "?") + " · " + (question.topic || question.subject) : "Questão removida";
   };
 
-  const saveQuickDiagram = async (form: DiagramQuickCreateForm) => {
-    if (!selectedNode) return;
-    const created = await addDiagram({ title: form.title.trim() || "Fluxograma sem título", description: form.description.trim() || undefined, notes: form.notes.trim() || undefined, nodes: [], edges: [], phaseIds: [], flashcardIds: [], problemIds: [] });
-    await addLink({ nodeId: selectedNode.id, resourceType: "diagram", resourceId: created.id });
-    setDiagramModalOpen(false);
-    openDiagram(created.id);
+  const saveSubtopic = async (form: SubtopicQuickCreateForm) => {
+    if (!selectedRoadmap || !subtopicParent) return;
+    const created = await addNode({
+      roadmapId: selectedRoadmap.id,
+      parentId: subtopicParent.id,
+      kind: "subtopic",
+      title: form.title,
+      description: form.description,
+      notes: form.notes,
+    });
+    setSelectedNodeId(created.id);
+    setSubtopicParent(null);
+    setSubtopicModalOpen(false);
   };
 
   const saveRoadmap = async (form: RoadmapForm) => {
@@ -192,7 +198,7 @@ export function RoadmapsPage() {
             </div>
             <div className="my-5 p-4 rounded-xl border border-retro-border bg-retro-panelHover"><div className="flex items-center justify-between text-[12px] mb-2"><span className="text-retro-text flex items-center gap-2"><CheckCircle2 size={15} className="text-retro-green" /> progresso dos itens</span><strong className="text-retro-blue">{progress.completed}/{progress.total} · {progress.percentage}%</strong></div><ProgressBar value={progress.percentage} /></div>
             <div className="mb-5 grid grid-cols-2 gap-2"><div className="rounded-lg border border-retro-border/60 bg-retro-panelHover p-3"><span className="block text-[10px] uppercase tracking-wider text-retro-comment">materiais revisados</span><strong className="block mt-1 text-retro-text">{materialProgress.completed}/{materialProgress.total}</strong><span className="text-[11px] text-retro-comment">{materialProgress.percentage}% do tópico</span></div><div className="rounded-lg border border-retro-border/60 bg-retro-panelHover p-3"><span className="block text-[10px] uppercase tracking-wider text-retro-comment">composição</span><strong className="block mt-1 text-retro-text">{materialProgress.flashcardsCompleted}/{materialProgress.flashcardsTotal} cartões</strong><span className="text-[11px] text-retro-comment">{materialProgress.questionsAnswered}/{materialProgress.questionsTotal} questões</span></div></div><div className="flex items-center justify-between gap-2 mb-3"><div><h3 className="text-retro-text font-semibold">Conteúdo da trilha</h3><p className="text-[12px] text-retro-comment">Marque os nós concluídos ou abra um item para editar.</p></div><div className="flex gap-2"><RetroButton variant="ghost" icon={<FilePlus2 size={13} />} onClick={() => setImportModalOpen(true)}>importar edital</RetroButton><RetroButton icon={<Plus size={13} />} onClick={() => setNodeModal({ open: true, editing: null })}>novo tópico</RetroButton></div></div>
-            {roadmapNodes.length > 0 ? <RoadmapTree nodes={roadmapNodes} selectedId={selectedNode?.id ?? null} onSelect={(node) => setSelectedNodeId(node.id)} onToggle={(node) => void toggleNode(node.id, !node.completed)} onMove={(id, direction) => void moveNode(id, direction)} /> : <div className="p-8 border border-dashed border-retro-border rounded-xl text-center text-[12px] text-retro-comment"><ListChecks size={32} className="mx-auto mb-2 text-retro-orange" />Adicione o primeiro tópico da trilha.</div>}
+            {roadmapNodes.length > 0 ? <RoadmapTree nodes={roadmapNodes} selectedId={selectedNode?.id ?? null} onSelect={(node) => setSelectedNodeId(node.id)} onToggle={(node) => void toggleNode(node.id, !node.completed)} onMove={(id, direction) => void moveNode(id, direction)} onAddChild={(node) => { setSelectedNodeId(node.id); setSubtopicParent(node); setSubtopicModalOpen(true); }} /> : <div className="p-8 border border-dashed border-retro-border rounded-xl text-center text-[12px] text-retro-comment"><ListChecks size={32} className="mx-auto mb-2 text-retro-orange" />Adicione o primeiro tópico da trilha.</div>}
           </>}
         </section>
 
@@ -201,7 +207,7 @@ export function RoadmapsPage() {
             <div className="flex items-start justify-between gap-2"><div><span className="text-[10px] uppercase tracking-widest text-retro-comment">{selectedNode.kind}</span><h3 className="text-retro-text font-semibold mt-1">{selectedNode.title}</h3></div><input type="checkbox" className="sketch-checkbox mt-1" checked={selectedNode.completed} onChange={() => void toggleNode(selectedNode.id, !selectedNode.completed)} /></div>
             {selectedNode.description && <p className="text-[12px] text-retro-text-dim">{selectedNode.description}</p>}
             <div className="border-t border-retro-border/60 pt-4"><h4 className="text-[12px] text-retro-text font-semibold flex items-center gap-2"><StickyNote size={14} className="text-retro-yellow" /> anotações</h4><p className="mt-2 text-[12px] text-retro-text-dim whitespace-pre-wrap">{selectedNode.notes || "Nenhuma anotação neste tópico."}</p></div>
-            <div className="border-t border-retro-border/60 pt-4"><div className="flex items-center justify-between gap-2"><h4 className="text-[12px] text-retro-text font-semibold flex items-center gap-2"><Link2 size={14} className="text-retro-purple" /> materiais ({selectedLinks.length})</h4><div className="flex items-center gap-1"><RetroButton variant="ghost" className="!px-2 !py-1" onClick={() => setLinkModalOpen(true)} title="Vincular material" aria-label="Vincular material"><Link2 size={13} /></RetroButton><RetroButton variant="ghost" className="!px-2 !py-1" onClick={() => setDiagramModalOpen(true)} title="Criar fluxograma neste tópico" aria-label="Criar fluxograma neste tópico"><Plus size={13} /></RetroButton></div></div><div className="mt-2 space-y-2">{selectedLinks.map((link) => <div key={link.id} className="flex items-start gap-2 p-2 rounded border border-retro-border/60"><button type="button" className="text-[11px] text-retro-text flex-1 text-left hover:text-retro-blue" onClick={() => link.resourceType === "flashcard" ? openFlashcard(link.resourceId) : link.resourceType === "diagram" ? openDiagram(link.resourceId) : openQuizQuestion(link.resourceId)}>{linkedTitle(link)}</button><button type="button" className="text-retro-red" onClick={() => void deleteLink(link.id)} aria-label="Remover vínculo"><Trash2 size={13} /></button></div>)}{selectedLinks.length === 0 && <p className="text-[12px] text-retro-comment">Vincule um flashcard ou uma questão para revisar esse item.</p>}</div></div>
+            <div className="border-t border-retro-border/60 pt-4"><div className="flex items-center justify-between gap-2"><h4 className="text-[12px] text-retro-text font-semibold flex items-center gap-2"><Link2 size={14} className="text-retro-purple" /> materiais ({selectedLinks.length})</h4><div className="flex items-center gap-1"><RetroButton variant="ghost" className="!px-2 !py-1" onClick={() => setLinkModalOpen(true)} title="Vincular material" aria-label="Vincular material"><Link2 size={13} /></RetroButton><RetroButton variant="ghost" className="!px-2 !py-1" onClick={() => { setSelectedNodeId(selectedNode.id); setSubtopicParent(selectedNode); setSubtopicModalOpen(true); }} title="Adicionar subtópico" aria-label="Adicionar subtópico"><Plus size={13} /></RetroButton></div></div><div className="mt-2 space-y-2">{selectedLinks.map((link) => <div key={link.id} className="flex items-start gap-2 p-2 rounded border border-retro-border/60"><button type="button" className="text-[11px] text-retro-text flex-1 text-left hover:text-retro-blue" onClick={() => link.resourceType === "flashcard" ? openFlashcard(link.resourceId) : link.resourceType === "diagram" ? openDiagram(link.resourceId) : openQuizQuestion(link.resourceId)}>{linkedTitle(link)}</button><button type="button" className="text-retro-red" onClick={() => void deleteLink(link.id)} aria-label="Remover vínculo"><Trash2 size={13} /></button></div>)}{selectedLinks.length === 0 && <p className="text-[12px] text-retro-comment">Vincule um flashcard ou uma questão para revisar esse item.</p>}</div></div>
             <div className="border-t border-retro-border/60 pt-4"><p className="text-[11px] text-retro-comment mb-2">Comece uma sessão com o material deste tópico.</p><div className="flex flex-wrap gap-2"><RetroButton variant="primary" disabled={!selectedFlashcardIds.length} icon={<Play size={13} />} onClick={() => startFlashcardStudy(selectedFlashcardIds)}>estudar cartões</RetroButton><RetroButton variant="ghost" disabled={!selectedQuestionIds.length} icon={<ListChecks size={13} />} onClick={() => startQuizWithQuestions(selectedQuestionIds)}>simular questões</RetroButton></div></div>
             <div className="flex gap-2 pt-2"><RetroButton variant="ghost" icon={<Pencil size={13} />} onClick={() => setNodeModal({ open: true, editing: selectedNode })}>editar</RetroButton><RetroButton variant="ghost" icon={<Trash2 size={13} />} onClick={() => setNodeToDelete(selectedNode)}>excluir</RetroButton></div>
           </div> : <div className="h-full flex items-center justify-center text-center text-[12px] text-retro-comment"><Target size={32} className="mx-auto mb-2 text-retro-blue" />Selecione um tópico para ver detalhes.</div>}
@@ -211,7 +217,7 @@ export function RoadmapsPage() {
       <RoadmapImportModal open={importModalOpen} onClose={() => setImportModalOpen(false)} onImport={importRoadmapTopics} />
       <RoadmapFormModal key={roadmapModal.editing?.id ?? (roadmapModal.open ? "new-open" : "new-closed")} open={roadmapModal.open} initial={roadmapForm} onClose={() => setRoadmapModal({ open: false, editing: null })} onSave={saveRoadmap} />
       {selectedRoadmap && <NodeFormModal key={nodeModal.editing?.id ?? (nodeModal.open ? "new-open" : "new-closed")} open={nodeModal.open} initial={nodeForm} nodes={roadmapNodes} editingId={nodeModal.editing?.id ?? null} onClose={() => setNodeModal({ open: false, editing: null })} onSave={saveNode} />}
-      <DiagramQuickCreateModal key={diagramModalOpen ? "diagram-create-open" : "diagram-create-closed"} open={diagramModalOpen} node={selectedNode} initial={emptyDiagramForm} onClose={() => setDiagramModalOpen(false)} onSave={saveQuickDiagram} />
+      <SubtopicQuickCreateModal key={subtopicModalOpen ? "subtopic-create-open" : "subtopic-create-closed"} open={subtopicModalOpen} parent={subtopicParent} initial={{ title: "", description: "", notes: "" }} onClose={() => { setSubtopicModalOpen(false); setSubtopicParent(null); }} onSave={saveSubtopic} />
       <LinkModal open={linkModalOpen} node={selectedNode} diagrams={diagrams} onClose={() => setLinkModalOpen(false)} onSave={async (resourceType, resourceId) => { if (selectedNode) await addLink({ nodeId: selectedNode.id, resourceType, resourceId }); setLinkModalOpen(false); }} />
       <ConfirmDialog open={Boolean(roadmapToDelete)} title="Excluir trilha?" message={"A trilha “" + (roadmapToDelete?.title ?? "") + "” e todos os seus tópicos e vínculos serão removidos."} tone="danger" onCancel={() => setRoadmapToDelete(null)} onConfirm={async () => { if (roadmapToDelete) { await deleteRoadmap(roadmapToDelete.id); setSelectedId(null); setSelectedNodeId(null); } setRoadmapToDelete(null); }} />
       <ConfirmDialog open={Boolean(nodeToDelete)} title="Excluir tópico?" message={"“" + (nodeToDelete?.title ?? "") + "” e seus subtópicos serão removidos."} tone="danger" onCancel={() => setNodeToDelete(null)} onConfirm={async () => { if (nodeToDelete) { await deleteNode(nodeToDelete.id); setSelectedNodeId(null); } setNodeToDelete(null); }} />

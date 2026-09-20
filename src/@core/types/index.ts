@@ -78,7 +78,6 @@ export interface StudyDiagram {
   id: string;
   title: string;
   description?: string;
-  notes?: string;
   nodes: unknown[];
   edges: unknown[];
   phaseIds: string[];
