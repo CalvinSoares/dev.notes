@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   addEdge,
   Background,
@@ -8,6 +8,7 @@ import {
   Handle,
   NodeResizer,
   Position,
+  SelectionMode,
   useEdgesState,
   useNodesState,
   useReactFlow,
@@ -133,6 +134,8 @@ export function DiagramsPage() {
   const problems = useLeetCodeStore((state) => state.problems);
   const updateProblem = useLeetCodeStore((state) => state.updateProblem);
   const theme = useAppStore((state) => state.theme);
+  const diagramFocusId = useAppStore((state) => state.diagramFocusId);
+  const clearDiagramFocus = useAppStore((state) => state.clearDiagramFocus);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = useMemo(() => diagrams.find((diagram) => diagram.id === selectedId) ?? null, [diagrams, selectedId]);
   const [title, setTitle] = useState("");
@@ -144,11 +147,23 @@ export function DiagramsPage() {
   const [problemIds, setProblemIds] = useState<string[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const clipboardRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<StudyDiagram | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [metadataOpen, setMetadataOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [metadataMode, setMetadataMode] = useState<"create" | "edit">("create");
+
+  useEffect(() => {
+    if (diagramFocusId) {
+      const focused = diagrams.find((diagram) => diagram.id === diagramFocusId);
+      if (focused) {
+        setSelectedId(focused.id);
+        setEditorOpen(true);
+      }
+      clearDiagramFocus();
+    }
+  }, [diagramFocusId, diagrams, clearDiagramFocus]);
 
   useEffect(() => {
     if (!selected) return;
@@ -233,13 +248,82 @@ export function DiagramsPage() {
     setSelectedNodeId(id);
   };
 
-  const deleteSelectedNode = () => {
-    if (!selectedNodeId) return;
-    setNodes((current) => current.filter((node) => node.id !== selectedNodeId));
-    setEdges((current) => current.filter((edge) => edge.source !== selectedNodeId && edge.target !== selectedNodeId));
+  const deleteSelectedNodes = (ids?: string[]) => {
+    const selectedIds = new Set(ids ?? nodes.filter((node) => node.selected).map((node) => node.id));
+    if (selectedIds.size === 0 && selectedNodeId) selectedIds.add(selectedNodeId);
+    if (selectedIds.size === 0) return;
+    setNodes((current) => current.filter((node) => !selectedIds.has(node.id)));
+    setEdges((current) => current.filter((edge) => !selectedIds.has(edge.source) && !selectedIds.has(edge.target)));
     setSelectedNodeId(null);
     setSelectedEdgeId(null);
   };
+
+  const handleSelectionChange = ({ nodes: selectedNodes, edges: selectedEdges }: { nodes: Node[]; edges: Edge[] }) => {
+    setSelectedNodeId(selectedNodes[0]?.id ?? null);
+    setSelectedEdgeId(selectedEdges[0]?.id ?? null);
+  };
+
+  useEffect(() => {
+    if (!editorOpen) return;
+    const handleClipboardKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.matches("input, textarea, select, [contenteditable='true']")) return;
+      if (!event.ctrlKey && !event.metaKey) return;
+
+      const selectedNodes = nodes.filter((node) => node.selected);
+      const selectedIds = new Set(selectedNodes.map((node) => node.id));
+      const selectedEdges = edges.filter((edge) => edge.selected || (selectedIds.has(edge.source) && selectedIds.has(edge.target)));
+
+      if (event.key.toLowerCase() === "c") {
+        if (selectedNodes.length === 0) return;
+        clipboardRef.current = {
+          nodes: selectedNodes.map((node) => ({ ...node, selected: false })),
+          edges: selectedEdges.map((edge) => ({ ...edge, selected: false })),
+        };
+        event.preventDefault();
+        return;
+      }
+
+      if (event.key.toLowerCase() === "x") {
+        if (selectedNodes.length === 0) return;
+        clipboardRef.current = {
+          nodes: selectedNodes.map((node) => ({ ...node, selected: false })),
+          edges: selectedEdges.map((edge) => ({ ...edge, selected: false })),
+        };
+        event.preventDefault();
+        deleteSelectedNodes(selectedNodes.map((node) => node.id));
+        return;
+      }
+
+      if (event.key.toLowerCase() !== "v" || !clipboardRef.current) return;
+      const copied = clipboardRef.current;
+      const idSuffix = Date.now();
+      const idMap = new Map(copied.nodes.map((node, index) => [node.id, "node-" + idSuffix + "-" + index]));
+      const pastedNodes = copied.nodes.map((node, index) => ({
+        ...node,
+        id: idMap.get(node.id) ?? "node-" + idSuffix + "-" + index,
+        position: { x: node.position.x + 40, y: node.position.y + 40 },
+        selected: true,
+      }));
+      const pastedEdges = copied.edges
+        .filter((edge) => idMap.has(edge.source) && idMap.has(edge.target))
+        .map((edge, index) => ({
+          ...edge,
+          id: "edge-" + idSuffix + "-" + index,
+          source: idMap.get(edge.source) ?? edge.source,
+          target: idMap.get(edge.target) ?? edge.target,
+          selected: true,
+        }));
+      setNodes((current) => [...current.map((node) => ({ ...node, selected: false })), ...pastedNodes]);
+      setEdges((current) => [...current.map((edge) => ({ ...edge, selected: false })), ...pastedEdges]);
+      setSelectedNodeId(pastedNodes[0]?.id ?? null);
+      setSelectedEdgeId(null);
+      event.preventDefault();
+    };
+
+    window.addEventListener("keydown", handleClipboardKeyDown);
+    return () => window.removeEventListener("keydown", handleClipboardKeyDown);
+  }, [editorOpen, nodes, edges, selectedNodeId, setNodes, setEdges]);
 
   const updateSelectedEdge = (patch: Partial<Edge>) => {
     if (!selectedEdgeId) return;
@@ -310,7 +394,7 @@ export function DiagramsPage() {
             <RetroButton variant="ghost" icon={<Link2 size={13} />} onClick={() => setLinkOpen(true)}>vincular</RetroButton>
             <button type="button" className="retro-btn retro-btn--default" onClick={() => addBuilderNode("block")}>+ bloco</button>
             <button type="button" className="retro-btn retro-btn--default" onClick={() => addBuilderNode("text")}>+ texto</button>
-            <button type="button" className="retro-btn retro-btn--ghost" disabled={!selectedNodeId} onClick={deleteSelectedNode}>apagar selecionado</button>
+            <button type="button" className="retro-btn retro-btn--ghost" disabled={!selectedNodeId && !nodes.some((node) => node.selected)} onClick={() => deleteSelectedNodes()}>apagar selecionado</button>
           </div>
           <div className="flex-1 min-h-[480px]">
             <ReactFlow
@@ -324,6 +408,10 @@ export function DiagramsPage() {
               onNodeClick={(_, node) => { setSelectedNodeId(node.id); setSelectedEdgeId(null); }}
               onEdgeClick={(_, edge) => { setSelectedEdgeId(edge.id); setSelectedNodeId(null); }}
               onPaneClick={() => { setSelectedNodeId(null); setSelectedEdgeId(null); }}
+              onSelectionChange={handleSelectionChange}
+              selectionOnDrag
+              selectionMode={SelectionMode.Partial}
+              multiSelectionKeyCode="Control"
               onNodesDelete={(deleted) => {
                 if (deleted.some((node) => node.id === selectedNodeId)) setSelectedNodeId(null);
               }}
