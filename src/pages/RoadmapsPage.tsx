@@ -15,13 +15,14 @@ import {
   Trash2,
 } from "lucide-react";
 import { ProgressBar, RoadmapTree } from "@/components/features/roadmaps/RoadmapTree";
-import { LinkModal, NodeFormModal, RoadmapFormModal, type NodeForm, type RoadmapForm } from "@/components/features/roadmaps/RoadmapModals";
+import { DiagramQuickCreateModal, LinkModal, NodeFormModal, RoadmapFormModal, type DiagramQuickCreateForm, type NodeForm, type RoadmapForm } from "@/components/features/roadmaps/RoadmapModals";
 import { RoadmapImportModal } from "@/components/features/roadmaps/RoadmapImportModal";
 import { getRoadmapMaterialProgress, getRoadmapProgress, parseRoadmapImportText } from "@core/lib/roadmap";
 import type { StudyRoadmap, StudyRoadmapLink, StudyRoadmapNode } from "@core/types/roadmap";
 import { useRoadmapStore } from "@/store/useRoadmapStore";
 import { useFlashcardStore } from "@/store/useFlashcardStore";
 import { useQuizStore } from "@/store/useQuizStore";
+import { useDiagramStore } from "@/store/useDiagramStore";
 import { useAppStore } from "@/store/useAppStore";
 import { RetroButton } from "@/components/ui/RetroButton";
 import { ConfirmDialog } from "@/components/ui/RetroModal";
@@ -63,10 +64,13 @@ export function RoadmapsPage() {
   const cards = useFlashcardStore((state) => state.cards);
   const questions = useQuizStore((state) => state.questions);
   const attempts = useQuizStore((state) => state.attempts);
+  const diagrams = useDiagramStore((state) => state.diagrams);
+  const addDiagram = useDiagramStore((state) => state.addDiagram);
   const openFlashcard = useAppStore((state) => state.openFlashcard);
   const openQuizQuestion = useAppStore((state) => state.openQuizQuestion);
   const startFlashcardStudy = useAppStore((state) => state.startFlashcardStudy);
   const startQuizWithQuestions = useAppStore((state) => state.startQuizWithQuestions);
+  const openDiagram = useAppStore((state) => state.openDiagram);
 
   useEffect(() => {
     if (!hydrated && !roadmapError) void initializeRoadmaps();
@@ -76,10 +80,12 @@ export function RoadmapsPage() {
   const [roadmapModal, setRoadmapModal] = useState<{ open: boolean; editing: StudyRoadmap | null }>({ open: false, editing: null });
   const [nodeModal, setNodeModal] = useState<{ open: boolean; editing: StudyRoadmapNode | null }>({ open: false, editing: null });
   const [linkModalOpen, setLinkModalOpen] = useState(false);
+  const [diagramModalOpen, setDiagramModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [nodeToDelete, setNodeToDelete] = useState<StudyRoadmapNode | null>(null);
   const [roadmapToDelete, setRoadmapToDelete] = useState<StudyRoadmap | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const emptyDiagramForm: DiagramQuickCreateForm = { title: "", description: "", notes: "" };
 
   const selectedRoadmap = roadmaps.find((roadmap) => roadmap.id === selectedId) ?? roadmaps[0] ?? null;
   const roadmapNodes = useMemo(() => selectedRoadmap ? nodes.filter((node) => node.roadmapId === selectedRoadmap.id) : [], [nodes, selectedRoadmap]);
@@ -94,12 +100,21 @@ export function RoadmapsPage() {
     : emptyRoadmapForm;
   const nodeForm = nodeModal.editing
     ? { title: nodeModal.editing.title, kind: nodeModal.editing.kind, parentId: nodeModal.editing.parentId ?? "", description: nodeModal.editing.description ?? "", notes: nodeModal.editing.notes ?? "" }
-    : { ...emptyNodeForm, parentId: selectedNode?.kind === "topic" ? selectedNode.id : "" };
+    : { ...emptyNodeForm, parentId: selectedNode?.id ?? "" };
 
   const linkedTitle = (link: StudyRoadmapLink) => {
     if (link.resourceType === "flashcard") return cards.find((card) => card.id === link.resourceId)?.question ?? "Flashcard removido";
+    if (link.resourceType === "diagram") return diagrams.find((diagram) => diagram.id === link.resourceId)?.title ?? "Fluxograma removido";
     const question = questions.find((item) => item.id === link.resourceId);
     return question ? "Questão " + (question.order ?? "?") + " · " + (question.topic || question.subject) : "Questão removida";
+  };
+
+  const saveQuickDiagram = async (form: DiagramQuickCreateForm) => {
+    if (!selectedNode) return;
+    const created = await addDiagram({ title: form.title.trim() || "Fluxograma sem título", description: form.description.trim() || undefined, notes: form.notes.trim() || undefined, nodes: [], edges: [], phaseIds: [], flashcardIds: [], problemIds: [] });
+    await addLink({ nodeId: selectedNode.id, resourceType: "diagram", resourceId: created.id });
+    setDiagramModalOpen(false);
+    openDiagram(created.id);
   };
 
   const saveRoadmap = async (form: RoadmapForm) => {
@@ -186,7 +201,7 @@ export function RoadmapsPage() {
             <div className="flex items-start justify-between gap-2"><div><span className="text-[10px] uppercase tracking-widest text-retro-comment">{selectedNode.kind}</span><h3 className="text-retro-text font-semibold mt-1">{selectedNode.title}</h3></div><input type="checkbox" className="sketch-checkbox mt-1" checked={selectedNode.completed} onChange={() => void toggleNode(selectedNode.id, !selectedNode.completed)} /></div>
             {selectedNode.description && <p className="text-[12px] text-retro-text-dim">{selectedNode.description}</p>}
             <div className="border-t border-retro-border/60 pt-4"><h4 className="text-[12px] text-retro-text font-semibold flex items-center gap-2"><StickyNote size={14} className="text-retro-yellow" /> anotações</h4><p className="mt-2 text-[12px] text-retro-text-dim whitespace-pre-wrap">{selectedNode.notes || "Nenhuma anotação neste tópico."}</p></div>
-            <div className="border-t border-retro-border/60 pt-4"><div className="flex items-center justify-between gap-2"><h4 className="text-[12px] text-retro-text font-semibold flex items-center gap-2"><Link2 size={14} className="text-retro-purple" /> materiais ({selectedLinks.length})</h4><RetroButton variant="ghost" className="!px-2 !py-1" onClick={() => setLinkModalOpen(true)}><Plus size={13} /></RetroButton></div><div className="mt-2 space-y-2">{selectedLinks.map((link) => <div key={link.id} className="flex items-start gap-2 p-2 rounded border border-retro-border/60"><button type="button" className="text-[11px] text-retro-text flex-1 text-left hover:text-retro-blue" onClick={() => link.resourceType === "flashcard" ? openFlashcard(link.resourceId) : openQuizQuestion(link.resourceId)}>{linkedTitle(link)}</button><button type="button" className="text-retro-red" onClick={() => void deleteLink(link.id)} aria-label="Remover vínculo"><Trash2 size={13} /></button></div>)}{selectedLinks.length === 0 && <p className="text-[12px] text-retro-comment">Vincule um flashcard ou uma questão para revisar esse item.</p>}</div></div>
+            <div className="border-t border-retro-border/60 pt-4"><div className="flex items-center justify-between gap-2"><h4 className="text-[12px] text-retro-text font-semibold flex items-center gap-2"><Link2 size={14} className="text-retro-purple" /> materiais ({selectedLinks.length})</h4><div className="flex items-center gap-1"><RetroButton variant="ghost" className="!px-2 !py-1" onClick={() => setLinkModalOpen(true)} title="Vincular material" aria-label="Vincular material"><Link2 size={13} /></RetroButton><RetroButton variant="ghost" className="!px-2 !py-1" onClick={() => setDiagramModalOpen(true)} title="Criar fluxograma neste tópico" aria-label="Criar fluxograma neste tópico"><Plus size={13} /></RetroButton></div></div><div className="mt-2 space-y-2">{selectedLinks.map((link) => <div key={link.id} className="flex items-start gap-2 p-2 rounded border border-retro-border/60"><button type="button" className="text-[11px] text-retro-text flex-1 text-left hover:text-retro-blue" onClick={() => link.resourceType === "flashcard" ? openFlashcard(link.resourceId) : link.resourceType === "diagram" ? openDiagram(link.resourceId) : openQuizQuestion(link.resourceId)}>{linkedTitle(link)}</button><button type="button" className="text-retro-red" onClick={() => void deleteLink(link.id)} aria-label="Remover vínculo"><Trash2 size={13} /></button></div>)}{selectedLinks.length === 0 && <p className="text-[12px] text-retro-comment">Vincule um flashcard ou uma questão para revisar esse item.</p>}</div></div>
             <div className="border-t border-retro-border/60 pt-4"><p className="text-[11px] text-retro-comment mb-2">Comece uma sessão com o material deste tópico.</p><div className="flex flex-wrap gap-2"><RetroButton variant="primary" disabled={!selectedFlashcardIds.length} icon={<Play size={13} />} onClick={() => startFlashcardStudy(selectedFlashcardIds)}>estudar cartões</RetroButton><RetroButton variant="ghost" disabled={!selectedQuestionIds.length} icon={<ListChecks size={13} />} onClick={() => startQuizWithQuestions(selectedQuestionIds)}>simular questões</RetroButton></div></div>
             <div className="flex gap-2 pt-2"><RetroButton variant="ghost" icon={<Pencil size={13} />} onClick={() => setNodeModal({ open: true, editing: selectedNode })}>editar</RetroButton><RetroButton variant="ghost" icon={<Trash2 size={13} />} onClick={() => setNodeToDelete(selectedNode)}>excluir</RetroButton></div>
           </div> : <div className="h-full flex items-center justify-center text-center text-[12px] text-retro-comment"><Target size={32} className="mx-auto mb-2 text-retro-blue" />Selecione um tópico para ver detalhes.</div>}
@@ -196,7 +211,8 @@ export function RoadmapsPage() {
       <RoadmapImportModal open={importModalOpen} onClose={() => setImportModalOpen(false)} onImport={importRoadmapTopics} />
       <RoadmapFormModal key={roadmapModal.editing?.id ?? (roadmapModal.open ? "new-open" : "new-closed")} open={roadmapModal.open} initial={roadmapForm} onClose={() => setRoadmapModal({ open: false, editing: null })} onSave={saveRoadmap} />
       {selectedRoadmap && <NodeFormModal key={nodeModal.editing?.id ?? (nodeModal.open ? "new-open" : "new-closed")} open={nodeModal.open} initial={nodeForm} nodes={roadmapNodes} editingId={nodeModal.editing?.id ?? null} onClose={() => setNodeModal({ open: false, editing: null })} onSave={saveNode} />}
-      <LinkModal open={linkModalOpen} node={selectedNode} onClose={() => setLinkModalOpen(false)} onSave={async (resourceType, resourceId) => { if (selectedNode) await addLink({ nodeId: selectedNode.id, resourceType, resourceId }); setLinkModalOpen(false); }} />
+      <DiagramQuickCreateModal key={diagramModalOpen ? "diagram-create-open" : "diagram-create-closed"} open={diagramModalOpen} node={selectedNode} initial={emptyDiagramForm} onClose={() => setDiagramModalOpen(false)} onSave={saveQuickDiagram} />
+      <LinkModal open={linkModalOpen} node={selectedNode} diagrams={diagrams} onClose={() => setLinkModalOpen(false)} onSave={async (resourceType, resourceId) => { if (selectedNode) await addLink({ nodeId: selectedNode.id, resourceType, resourceId }); setLinkModalOpen(false); }} />
       <ConfirmDialog open={Boolean(roadmapToDelete)} title="Excluir trilha?" message={"A trilha “" + (roadmapToDelete?.title ?? "") + "” e todos os seus tópicos e vínculos serão removidos."} tone="danger" onCancel={() => setRoadmapToDelete(null)} onConfirm={async () => { if (roadmapToDelete) { await deleteRoadmap(roadmapToDelete.id); setSelectedId(null); setSelectedNodeId(null); } setRoadmapToDelete(null); }} />
       <ConfirmDialog open={Boolean(nodeToDelete)} title="Excluir tópico?" message={"“" + (nodeToDelete?.title ?? "") + "” e seus subtópicos serão removidos."} tone="danger" onCancel={() => setNodeToDelete(null)} onConfirm={async () => { if (nodeToDelete) { await deleteNode(nodeToDelete.id); setSelectedNodeId(null); } setNodeToDelete(null); }} />
     </div>

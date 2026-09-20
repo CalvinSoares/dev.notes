@@ -16,14 +16,17 @@ interface AppState {
   toggleTheme: () => void;
   flashcardFocusId: string | null;
   quizQuestionFocusId: string | null;
+  diagramFocusId: string | null;
   flashcardStudyIds: string[] | null;
   quizStudyQuestionIds: string[] | null;
   openFlashcard: (id: string) => void;
   openQuizQuestion: (id: string) => void;
+  openDiagram: (id: string) => void;
   startFlashcardStudy: (ids: string[]) => void;
   startQuizWithQuestions: (ids: string[]) => void;
   clearFlashcardFocus: () => void;
   clearQuizQuestionFocus: () => void;
+  clearDiagramFocus: () => void;
   clearFlashcardStudy: () => void;
   clearQuizStudy: () => void;
 }
@@ -61,6 +64,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   theme: savedTheme,
   flashcardFocusId: null,
   quizQuestionFocusId: null,
+  diagramFocusId: null,
   flashcardStudyIds: null,
   quizStudyQuestionIds: null,
 
@@ -115,10 +119,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   openFlashcard: (id) => { get().openTab("flashcards"); set({ flashcardFocusId: id, flashcardStudyIds: null }); },
   openQuizQuestion: (id) => { get().openTab("quizzes"); set({ quizQuestionFocusId: id, quizStudyQuestionIds: null }); },
+  openDiagram: (id) => { get().openTab("diagrams"); set({ diagramFocusId: id }); },
   startFlashcardStudy: (ids) => { get().openTab("flashcards"); set({ flashcardStudyIds: ids, flashcardFocusId: null }); },
   startQuizWithQuestions: (ids) => { get().openTab("quizzes"); set({ quizStudyQuestionIds: ids, quizQuestionFocusId: null }); },
   clearFlashcardFocus: () => set({ flashcardFocusId: null }),
   clearQuizQuestionFocus: () => set({ quizQuestionFocusId: null }),
+  clearDiagramFocus: () => set({ diagramFocusId: null }),
   clearFlashcardStudy: () => set({ flashcardStudyIds: null }),
   clearQuizStudy: () => set({ quizStudyQuestionIds: null }),
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Link2, ListChecks, Route } from "lucide-react";
+import { BookOpen, GitBranch, Link2, ListChecks, Route } from "lucide-react";
 import { getRoadmapDescendantNodes } from "@core/lib/roadmap";
 import type { StudyRoadmap, StudyRoadmapNode } from "@core/types/roadmap";
 import { useFlashcardStore } from "@/store/useFlashcardStore";
@@ -207,22 +207,96 @@ export function NodeFormModal({
   );
 }
 
-export function LinkModal({
+export type DiagramQuickCreateForm = {
+  title: string;
+  description: string;
+  notes: string;
+};
+
+export function DiagramQuickCreateModal({
   open,
   node,
+  initial,
   onClose,
   onSave,
 }: {
   open: boolean;
   node: StudyRoadmapNode | null;
+  initial: DiagramQuickCreateForm;
   onClose: () => void;
-  onSave: (type: "flashcard" | "quiz-question", resourceId: string) => Promise<void>;
+  onSave: (form: DiagramQuickCreateForm) => Promise<void>;
+}) {
+  const [form, setForm] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const set = (patch: Partial<DiagramQuickCreateForm>) => setForm((current) => ({ ...current, ...patch }));
+
+  return (
+    <RetroModal
+      open={open}
+      onClose={onClose}
+      title="Novo fluxograma"
+      subtitle={node ? "Criado a partir de “" + node.title + "”" : "Crie um fluxograma de estudo."}
+      icon={<GitBranch size={17} />}
+      accent="blue"
+      size="md"
+      footer={
+        <>
+          <RetroButton onClick={onClose}>cancelar</RetroButton>
+          <RetroButton
+            variant="primary"
+            disabled={saving || !form.title.trim()}
+            onClick={async () => {
+              setSaving(true);
+              await onSave(form);
+              setSaving(false);
+            }}
+          >
+            criar e abrir
+          </RetroButton>
+        </>
+      }
+    >
+      <div className="p-5 space-y-4">
+        <label className="block text-[12px] text-retro-comment">
+          Nome *
+          <input autoFocus maxLength={120} value={form.title} onChange={(event) => set({ title: event.target.value })} className="retro-input w-full mt-1" placeholder="Ex.: Fluxo de autenticação" />
+        </label>
+        <label className="block text-[12px] text-retro-comment">
+          Descrição
+          <textarea maxLength={500} value={form.description} onChange={(event) => set({ description: event.target.value })} className="retro-input w-full mt-1 min-h-20" placeholder="O que este fluxograma explica?" />
+        </label>
+        <label className="block text-[12px] text-retro-comment">
+          Anotação
+          <textarea maxLength={2000} value={form.notes} onChange={(event) => set({ notes: event.target.value })} className="retro-input w-full mt-1 min-h-24" placeholder="Lembretes, contexto ou pontos para revisar..." />
+        </label>
+      </div>
+    </RetroModal>
+  );
+}
+export function LinkModal({
+  open,
+  node,
+  diagrams,
+  onClose,
+  onSave,
+}: {
+  open: boolean;
+  node: StudyRoadmapNode | null;
+  diagrams: Array<{ id: string; title: string; description?: string }>;
+  onClose: () => void;
+  onSave: (type: "flashcard" | "quiz-question" | "diagram", resourceId: string) => Promise<void>;
 }) {
   const cards = useFlashcardStore((state) => state.cards);
   const questions = useQuizStore((state) => state.questions);
-  const [type, setType] = useState<"flashcard" | "quiz-question">("flashcard");
+  const [type, setType] = useState<"flashcard" | "quiz-question" | "diagram">("flashcard");
   const [resourceId, setResourceId] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const resourceItems = type === "flashcard"
+    ? cards.map((card) => ({ id: card.id, label: card.question, description: card.tags.join(" · ") }))
+    : type === "quiz-question"
+      ? questions.map((question) => ({ id: question.id, label: "#" + (question.order ?? "?") + " · " + (question.topic || question.subject), description: question.statement }))
+      : diagrams.map((diagram) => ({ id: diagram.id, label: diagram.title, description: diagram.description }));
 
   return (
     <RetroModal
@@ -250,7 +324,7 @@ export function LinkModal({
       }
     >
       <div className="p-5 space-y-4">
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <button type="button" onClick={() => { setType("flashcard"); setResourceId(""); }} className={"p-3 rounded-lg border text-left " + (type === "flashcard" ? "border-retro-purple bg-retro-purple/10" : "border-retro-border")}>
             <BookOpen size={16} className="text-retro-purple" />
             <span className="block mt-1 text-[12px] text-retro-text">flashcards</span>
@@ -259,18 +333,21 @@ export function LinkModal({
             <ListChecks size={16} className="text-retro-purple" />
             <span className="block mt-1 text-[12px] text-retro-text">questões</span>
           </button>
+          <button type="button" onClick={() => { setType("diagram"); setResourceId(""); }} className={"p-3 rounded-lg border text-left " + (type === "diagram" ? "border-retro-purple bg-retro-purple/10" : "border-retro-border")}>
+            <GitBranch size={16} className="text-retro-purple" />
+            <span className="block mt-1 text-[12px] text-retro-text">fluxogramas</span>
+          </button>
         </div>
         <SearchableDropdown
-          items={type === "flashcard" ? cards.map((card) => ({ id: card.id, label: card.question, description: card.tags.join(" · ") })) : questions.map((question) => ({ id: question.id, label: "#" + (question.order ?? "?") + " · " + (question.topic || question.subject), description: question.statement }))}
+          items={resourceItems}
           value={resourceId}
           onChange={setResourceId}
-          placeholder={type === "flashcard" ? "Selecione um flashcard..." : "Selecione uma questão..."}
-          searchPlaceholder={type === "flashcard" ? "Buscar flashcards..." : "Buscar questões..."}
-          empty={type === "flashcard" ? "Nenhum flashcard disponível." : "Nenhuma questão disponível."}
+          placeholder={type === "flashcard" ? "Selecione um flashcard..." : type === "quiz-question" ? "Selecione uma questão..." : "Selecione um fluxograma..."}
+          searchPlaceholder={type === "flashcard" ? "Buscar flashcards..." : type === "quiz-question" ? "Buscar questões..." : "Buscar fluxogramas..."}
+          empty={type === "flashcard" ? "Nenhum flashcard disponível." : type === "quiz-question" ? "Nenhuma questão disponível." : "Nenhum fluxograma disponível."}
           charLimit={84}
         />
       </div>
     </RetroModal>
   );
 }
-

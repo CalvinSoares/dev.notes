@@ -2,7 +2,7 @@ export type StudyRoadmapStatus = "draft" | "active" | "completed" | "archived";
 
 export type StudyRoadmapNodeKind = "topic" | "subtopic";
 
-export type StudyRoadmapResourceType = "flashcard" | "quiz-question";
+export type StudyRoadmapResourceType = "flashcard" | "quiz-question" | "diagram";
 
 export interface StudyRoadmap {
   id: string;
