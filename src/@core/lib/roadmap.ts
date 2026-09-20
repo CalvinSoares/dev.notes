@@ -5,7 +5,20 @@ import type {
   StudyRoadmapNode,
   StudyRoadmapNodeProgress,
   StudyRoadmapProgress,
+  StudyRoadmapPriority,
 } from "../types/roadmap";
+
+export const ROADMAP_PRIORITY_OPTIONS: Array<{ id: StudyRoadmapPriority; label: string; description: string }> = [
+  { id: "none", label: "sem prioridade", description: "Ordem manual da trilha" },
+  { id: "low", label: "baixa", description: "Pode aguardar" },
+  { id: "medium", label: "média", description: "Importante para a revisão" },
+  { id: "high", label: "alta", description: "Prioridade de estudo" },
+  { id: "urgent", label: "urgente", description: "Estudar primeiro" },
+];
+
+export function getRoadmapPriorityWeight(priority?: StudyRoadmapPriority) {
+  return priority === "urgent" ? 4 : priority === "high" ? 3 : priority === "medium" ? 2 : priority === "low" ? 1 : 0;
+}
 
 export function buildRoadmapChildren(nodes: StudyRoadmapNode[]) {
   const children = new Map<string | undefined, StudyRoadmapNode[]>();
@@ -17,7 +30,7 @@ export function buildRoadmapChildren(nodes: StudyRoadmapNode[]) {
   }
 
   for (const group of children.values()) {
-    group.sort((left, right) => left.order - right.order || left.title.localeCompare(right.title));
+    group.sort((left, right) => getRoadmapPriorityWeight(right.priority) - getRoadmapPriorityWeight(left.priority) || left.order - right.order || left.title.localeCompare(right.title));
   }
 
   return children;
@@ -81,7 +94,7 @@ export function moveRoadmapNode(nodeId: string, direction: "up" | "down", nodes:
   if (!target) return nodes;
 
   const siblings = nodes
-    .filter((node) => node.roadmapId === target.roadmapId && node.parentId === target.parentId)
+    .filter((node) => node.roadmapId === target.roadmapId && node.parentId === target.parentId && getRoadmapPriorityWeight(node.priority) === getRoadmapPriorityWeight(target.priority))
     .sort((left, right) => left.order - right.order || left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
   const index = siblings.findIndex((node) => node.id === nodeId);
   const nextIndex = direction === "up" ? index - 1 : index + 1;

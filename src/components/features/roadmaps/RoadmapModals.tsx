@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { BookOpen, GitBranch, Link2, ListChecks, Route } from "lucide-react";
-import { getRoadmapDescendantNodes, parseRoadmapImportText } from "@core/lib/roadmap";
-import type { StudyRoadmap, StudyRoadmapNode } from "@core/types/roadmap";
+import { BookOpen, Flag, GitBranch, Link2, ListChecks, Route } from "lucide-react";
+import { getRoadmapDescendantNodes, parseRoadmapImportText, ROADMAP_PRIORITY_OPTIONS } from "@core/lib/roadmap";
+import type { StudyRoadmap, StudyRoadmapNode, StudyRoadmapPriority } from "@core/types/roadmap";
 import { useFlashcardStore } from "@/store/useFlashcardStore";
 import { useQuizStore } from "@/store/useQuizStore";
 import { RetroButton } from "@/components/ui/RetroButton";
@@ -25,6 +25,7 @@ export type NodeForm = {
   parentId: string;
   description: string;
   notes: string;
+  priority: StudyRoadmapPriority;
 };
 export function RoadmapFormModal({
   open,
@@ -110,6 +111,7 @@ export function RoadmapFormModal({
   );
 }
 
+export function PriorityPicker({ value, onChange, label = 'Prioridade' }: { value?: StudyRoadmapPriority; onChange: (priority: StudyRoadmapPriority) => void; label?: string }) { const selected = value ?? 'none'; const color = (id: StudyRoadmapPriority) => id === 'urgent' ? 'text-retro-red' : id === 'high' ? 'text-retro-orange' : id === 'medium' ? 'text-retro-yellow' : id === 'low' ? 'text-retro-blue' : 'text-retro-comment'; return <div><span className='block text-[12px] text-retro-comment mb-1'>{label}</span><div className='grid grid-cols-5 gap-2'>{ROADMAP_PRIORITY_OPTIONS.map((option) => <button key={option.id} type='button' title={option.label + ' · ' + option.description} aria-label={option.label} onClick={() => onChange(option.id)} className={'flex flex-col items-center gap-1 rounded-lg border px-2 py-2 text-[10px] transition-colors ' + (selected === option.id ? 'border-retro-text bg-retro-panelHover' : 'border-retro-border/60 hover:border-retro-border')}><Flag size={16} className={color(option.id)} fill={selected === option.id && option.id !== 'none' ? 'currentColor' : 'none'} /><span className='truncate max-w-full text-retro-comment'>{option.label}</span></button>)}</div></div>; }
 export function NodeFormModal({
   open,
   initial,
@@ -202,6 +204,8 @@ export function NodeFormModal({
           Anotações
           <textarea value={form.notes} onChange={(event) => set({ notes: event.target.value })} className="retro-input w-full mt-1 min-h-24" placeholder="Resumo, fontes, lembretes..." />
         </label>
+        <PriorityPicker value={form.priority} onChange={(priority) => set({ priority })} />
+
       </div>
     </RetroModal>
   );
@@ -211,6 +215,7 @@ export type SubtopicQuickCreateForm = {
   title: string;
   description: string;
   notes: string;
+  priority: StudyRoadmapPriority;
 };
 
 export function SubtopicQuickCreateModal({
@@ -226,11 +231,12 @@ export function SubtopicQuickCreateModal({
   initial: SubtopicQuickCreateForm;
   onClose: () => void;
   onSave: (form: SubtopicQuickCreateForm) => Promise<void>;
-  onSaveBulk: (text: string) => Promise<void>;
+  onSaveBulk: (text: string, priority: StudyRoadmapPriority) => Promise<void>;
 }) {
   const [form, setForm] = useState(initial);
   const [mode, setMode] = useState<"single" | "bulk">("single");
   const [bulkText, setBulkText] = useState("");
+  const [bulkPriority, setBulkPriority] = useState<StudyRoadmapPriority>("none");
   const [saving, setSaving] = useState(false);
   const set = (patch: Partial<SubtopicQuickCreateForm>) => setForm((current) => ({ ...current, ...patch }));
   const bulkPreview = useMemo(() => parseRoadmapImportText(bulkText), [bulkText]);
@@ -253,7 +259,7 @@ export function SubtopicQuickCreateModal({
             onClick={async () => {
               setSaving(true);
               try {
-                if (mode === "bulk") await onSaveBulk(bulkText);
+                if (mode === "bulk") await onSaveBulk(bulkText, bulkPriority);
                 else await onSave(form);
               } finally {
                 setSaving(false);
@@ -289,6 +295,7 @@ export function SubtopicQuickCreateModal({
               Anotação
               <textarea maxLength={2000} value={form.notes} onChange={(event) => set({ notes: event.target.value })} className="retro-input w-full mt-1 min-h-24" placeholder="Resumo, fontes ou lembretes..." />
             </label>
+            <PriorityPicker value={form.priority} onChange={(priority) => set({ priority })} />
           </>
         ) : (
           <>
@@ -302,6 +309,7 @@ export function SubtopicQuickCreateModal({
                 placeholder={"- Roteamento estático | Rotas configuradas manualmente\n  - Tabela de rotas | Entradas e métricas\n  - Rota padrão | Saída quando não há correspondência\n- Roteamento dinâmico | Rotas aprendidas por protocolo"}
               />
             </label>
+            <PriorityPicker value={bulkPriority} onChange={setBulkPriority} label="Prioridade aplicada a todos" />
             <div className="rounded-lg border border-dashed border-retro-orange/70 bg-retro-orange/10 p-3 text-[11px] text-retro-comment">
               <strong className="text-retro-orange">Formato aceito</strong>
               <p className="mt-1">Uma linha por item usando <code className="text-retro-text">Nome | Descrição</code>. Use dois espaços no começo da linha para criar um filho do item anterior. Linhas sem indentação ficam no mesmo nível. Blocos de código, fórmulas isoladas, setas e barras invertidas usadas como quebra são tratados como formatação.</p>

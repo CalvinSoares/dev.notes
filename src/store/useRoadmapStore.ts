@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { storage } from "@core/lib/storage";
 import { getRoadmapDescendantNodes, moveRoadmapNode, setRoadmapNodeCompletion } from "@core/lib/roadmap";
-import type { StudyRoadmap, StudyRoadmapLink, StudyRoadmapNode, StudyRoadmapStatus } from "@core/types/roadmap";
+import type { StudyRoadmap, StudyRoadmapLink, StudyRoadmapNode, StudyRoadmapPriority, StudyRoadmapStatus } from "@core/types/roadmap";
 
 const iso = (date: Date) => date.toISOString();
 const makeId = (prefix: string) => prefix + "-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
@@ -38,6 +38,7 @@ type NodeInput = {
   roadmapId: string;
   parentId?: string;
   kind: StudyRoadmapNode["kind"];
+  priority?: StudyRoadmapPriority;
   title: string;
   description?: string;
   notes?: string;
@@ -152,6 +153,7 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
       roadmapId: input.roadmapId,
       parentId: input.parentId || undefined,
       kind: input.kind,
+      priority: input.priority ?? "none",
       title: input.title.trim() || "Tópico sem título",
       description: input.description?.trim() || undefined,
       notes: input.notes?.trim() || undefined,
@@ -172,6 +174,7 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
       ...current,
       parentId: input.parentId || undefined,
       kind: input.kind,
+      priority: input.priority ?? current.priority ?? "none",
       title: input.title.trim() || "Tópico sem título",
       description: input.description?.trim() || undefined,
       notes: input.notes?.trim() || undefined,

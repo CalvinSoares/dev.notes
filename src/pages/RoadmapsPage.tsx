@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
+  Flag,
   FilePlus2,
   CheckCircle2,
   Link2,
@@ -17,8 +18,8 @@ import {
 import { ProgressBar, RoadmapTree } from "@/components/features/roadmaps/RoadmapTree";
 import { LinkModal, NodeFormModal, RoadmapFormModal, SubtopicQuickCreateModal, type NodeForm, type RoadmapForm, type SubtopicQuickCreateForm } from "@/components/features/roadmaps/RoadmapModals";
 import { RoadmapImportModal } from "@/components/features/roadmaps/RoadmapImportModal";
-import { getRoadmapMaterialProgress, getRoadmapProgress, parseRoadmapImportText } from "@core/lib/roadmap";
-import type { StudyRoadmap, StudyRoadmapLink, StudyRoadmapNode } from "@core/types/roadmap";
+import { getRoadmapMaterialProgress, getRoadmapPriorityWeight, getRoadmapProgress, parseRoadmapImportText, ROADMAP_PRIORITY_OPTIONS } from "@core/lib/roadmap";
+import type { StudyRoadmap, StudyRoadmapLink, StudyRoadmapNode, StudyRoadmapPriority } from "@core/types/roadmap";
 import { useRoadmapStore } from "@/store/useRoadmapStore";
 import { useFlashcardStore } from "@/store/useFlashcardStore";
 import { useQuizStore } from "@/store/useQuizStore";
@@ -26,6 +27,7 @@ import { useDiagramStore } from "@/store/useDiagramStore";
 import { useAppStore } from "@/store/useAppStore";
 import { RetroButton } from "@/components/ui/RetroButton";
 import { ConfirmDialog } from "@/components/ui/RetroModal";
+import { SearchableDropdown } from "@/components/ui/SearchableDropdown";
 
 const emptyRoadmapForm: RoadmapForm = {
   title: "",
@@ -42,6 +44,7 @@ const emptyNodeForm: NodeForm = {
   parentId: "",
   description: "",
   notes: "",
+  priority: "none",
 };
 
 export function RoadmapsPage() {
@@ -85,9 +88,24 @@ export function RoadmapsPage() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [subtopicParent, setSubtopicParent] = useState<StudyRoadmapNode | null>(null);
   const [subtopicModalOpen, setSubtopicModalOpen] = useState(false);
+  const [priorityFilter, setPriorityFilter] = useState<"all" | StudyRoadmapPriority>("all");
 
   const selectedRoadmap = roadmaps.find((roadmap) => roadmap.id === selectedId) ?? roadmaps[0] ?? null;
   const roadmapNodes = useMemo(() => selectedRoadmap ? nodes.filter((node) => node.roadmapId === selectedRoadmap.id) : [], [nodes, selectedRoadmap]);
+  const visibleRoadmapNodes = useMemo(() => {
+    if (priorityFilter === "all") return roadmapNodes;
+    const byId = new Map(roadmapNodes.map((node) => [node.id, node]));
+    const matches = (node: StudyRoadmapNode) => priorityFilter === "none" ? getRoadmapPriorityWeight(node.priority) === 0 : getRoadmapPriorityWeight(node.priority) >= getRoadmapPriorityWeight(priorityFilter);
+    const visibleIds = new Set(roadmapNodes.filter(matches).map((node) => node.id));
+    for (const node of roadmapNodes.filter(matches)) {
+      let parentId = node.parentId;
+      while (parentId) {
+        visibleIds.add(parentId);
+        parentId = byId.get(parentId)?.parentId;
+      }
+    }
+    return roadmapNodes.filter((node) => visibleIds.has(node.id));
+  }, [priorityFilter, roadmapNodes]);
   const selectedNode = roadmapNodes.find((node) => node.id === selectedNodeId) ?? roadmapNodes[0] ?? null;
   const selectedLinks = selectedNode ? links.filter((link) => link.nodeId === selectedNode.id).sort((left, right) => left.order - right.order) : [];
   const selectedFlashcardIds = selectedLinks.filter((link) => link.resourceType === "flashcard").map((link) => link.resourceId);
@@ -98,7 +116,7 @@ export function RoadmapsPage() {
     ? { title: roadmapModal.editing.title, description: roadmapModal.editing.description ?? "", objective: roadmapModal.editing.objective ?? "", status: roadmapModal.editing.status, startDate: roadmapModal.editing.startDate ?? "", targetDate: roadmapModal.editing.targetDate ?? "" }
     : emptyRoadmapForm;
   const nodeForm = nodeModal.editing
-    ? { title: nodeModal.editing.title, kind: nodeModal.editing.kind, parentId: nodeModal.editing.parentId ?? "", description: nodeModal.editing.description ?? "", notes: nodeModal.editing.notes ?? "" }
+    ? { title: nodeModal.editing.title, kind: nodeModal.editing.kind, parentId: nodeModal.editing.parentId ?? "", description: nodeModal.editing.description ?? "", notes: nodeModal.editing.notes ?? "", priority: nodeModal.editing.priority ?? "none" }
     : { ...emptyNodeForm, parentId: selectedNode?.id ?? "" };
 
   const linkedTitle = (link: StudyRoadmapLink) => {
@@ -117,13 +135,14 @@ export function RoadmapsPage() {
       title: form.title,
       description: form.description,
       notes: form.notes,
+      priority: form.priority,
     });
     setSelectedNodeId(created.id);
     setSubtopicParent(null);
     setSubtopicModalOpen(false);
   };
 
-  const saveSubtopicsBulk = async (text: string) => {
+  const saveSubtopicsBulk = async (text: string, priority: StudyRoadmapPriority) => {
     if (!selectedRoadmap || !subtopicParent) return;
     const stack: Array<{ depth: number; id: string }> = [{ depth: -1, id: subtopicParent.id }];
     let lastCreated: StudyRoadmapNode | null = null;
@@ -137,6 +156,7 @@ export function RoadmapsPage() {
         kind: "subtopic",
         title: line.title,
         description: line.description,
+        priority,
       });
       stack.push({ depth: line.depth, id: created.id });
       lastCreated = created;
@@ -184,6 +204,7 @@ export function RoadmapsPage() {
     setImportModalOpen(false);
   };
 
+  const treeContent = roadmapNodes.length === 0 ? <div className='p-8 border border-dashed border-retro-border rounded-xl text-center text-[12px] text-retro-comment'><ListChecks size={32} className='mx-auto mb-2 text-retro-orange' />Adicione o primeiro tópico da trilha.</div> : visibleRoadmapNodes.length === 0 ? <div className='p-8 border border-dashed border-retro-border rounded-xl text-center text-[12px] text-retro-comment'><Flag size={28} className='mx-auto mb-2 text-retro-orange' />Nenhum item encontrado com esse filtro.</div> : <RoadmapTree nodes={visibleRoadmapNodes} selectedId={selectedNode?.id ?? null} onSelect={(node) => setSelectedNodeId(node.id)} onToggle={(node) => void toggleNode(node.id, !node.completed)} onMove={(id, direction) => void moveNode(id, direction)} onAddChild={(node) => { setSelectedNodeId(node.id); setSubtopicParent(node); setSubtopicModalOpen(true); }} />;
   if (!hydrated) {
     return <div className="h-full flex items-center justify-center paper-page"><div className="text-center text-retro-comment"><Loader2 size={28} className="mx-auto mb-3 animate-spin text-retro-blue" /><p>Carregando suas trilhas...</p></div></div>;
   }
@@ -222,8 +243,12 @@ export function RoadmapsPage() {
             </div>
             <div className="my-5 p-4 rounded-xl border border-retro-border bg-retro-panelHover"><div className="flex items-center justify-between text-[12px] mb-2"><span className="text-retro-text flex items-center gap-2"><CheckCircle2 size={15} className="text-retro-green" /> progresso dos itens</span><strong className="text-retro-blue">{progress.completed}/{progress.total} · {progress.percentage}%</strong></div><ProgressBar value={progress.percentage} /></div>
             <div className="mb-5 grid grid-cols-2 gap-2"><div className="rounded-lg border border-retro-border/60 bg-retro-panelHover p-3"><span className="block text-[10px] uppercase tracking-wider text-retro-comment">materiais revisados</span><strong className="block mt-1 text-retro-text">{materialProgress.completed}/{materialProgress.total}</strong><span className="text-[11px] text-retro-comment">{materialProgress.percentage}% do tópico</span></div><div className="rounded-lg border border-retro-border/60 bg-retro-panelHover p-3"><span className="block text-[10px] uppercase tracking-wider text-retro-comment">composição</span><strong className="block mt-1 text-retro-text">{materialProgress.flashcardsCompleted}/{materialProgress.flashcardsTotal} cartões</strong><span className="text-[11px] text-retro-comment">{materialProgress.questionsAnswered}/{materialProgress.questionsTotal} questões</span></div></div><div className="flex items-center justify-between gap-2 mb-3"><div><h3 className="text-retro-text font-semibold">Conteúdo da trilha</h3><p className="text-[12px] text-retro-comment">Marque os nós concluídos ou abra um item para editar.</p></div><div className="flex gap-2"><RetroButton variant="ghost" icon={<FilePlus2 size={13} />} onClick={() => setImportModalOpen(true)}>importar edital</RetroButton><RetroButton icon={<Plus size={13} />} onClick={() => setNodeModal({ open: true, editing: null })}>novo tópico</RetroButton></div></div>
-            {roadmapNodes.length > 0 ? <RoadmapTree nodes={roadmapNodes} selectedId={selectedNode?.id ?? null} onSelect={(node) => setSelectedNodeId(node.id)} onToggle={(node) => void toggleNode(node.id, !node.completed)} onMove={(id, direction) => void moveNode(id, direction)} onAddChild={(node) => { setSelectedNodeId(node.id); setSubtopicParent(node); setSubtopicModalOpen(true); }} /> : <div className="p-8 border border-dashed border-retro-border rounded-xl text-center text-[12px] text-retro-comment"><ListChecks size={32} className="mx-auto mb-2 text-retro-orange" />Adicione o primeiro tópico da trilha.</div>}
-          </>}
+            <div className='mb-3 flex items-center gap-3 flex-wrap'>
+              <div className='flex items-center gap-2 text-[11px] uppercase tracking-wider text-retro-comment'><Flag size={13} className='text-retro-orange' /> filtrar prioridade</div>
+              <div className='w-full sm:w-64'><SearchableDropdown items={[{ id: 'all', label: 'todas as prioridades' }, ...ROADMAP_PRIORITY_OPTIONS.filter((option) => option.id !== 'none').map((option) => ({ id: option.id, label: option.label + ' ou maior', description: option.description }))]} value={priorityFilter} onChange={(value) => setPriorityFilter(value as 'all' | StudyRoadmapPriority)} placeholder='Todas as prioridades...' searchPlaceholder='Buscar prioridade...' charLimit={32} /></div>
+              {priorityFilter !== 'all' && <span className='text-[11px] text-retro-comment'>{visibleRoadmapNodes.length} itens visíveis</span>}
+            </div>
+            {treeContent}          </>}
         </section>
 
         <aside className="border-l border-retro-border/60 bg-retro-bgDark overflow-y-auto retro-scrollbar p-4">
@@ -241,7 +266,7 @@ export function RoadmapsPage() {
       <RoadmapImportModal open={importModalOpen} onClose={() => setImportModalOpen(false)} onImport={importRoadmapTopics} />
       <RoadmapFormModal key={roadmapModal.editing?.id ?? (roadmapModal.open ? "new-open" : "new-closed")} open={roadmapModal.open} initial={roadmapForm} onClose={() => setRoadmapModal({ open: false, editing: null })} onSave={saveRoadmap} />
       {selectedRoadmap && <NodeFormModal key={nodeModal.editing?.id ?? (nodeModal.open ? "new-open" : "new-closed")} open={nodeModal.open} initial={nodeForm} nodes={roadmapNodes} editingId={nodeModal.editing?.id ?? null} onClose={() => setNodeModal({ open: false, editing: null })} onSave={saveNode} />}
-      <SubtopicQuickCreateModal key={subtopicModalOpen ? "subtopic-create-open" : "subtopic-create-closed"} open={subtopicModalOpen} parent={subtopicParent} initial={{ title: "", description: "", notes: "" }} onClose={() => { setSubtopicModalOpen(false); setSubtopicParent(null); }} onSave={saveSubtopic} onSaveBulk={saveSubtopicsBulk} />
+      <SubtopicQuickCreateModal key={subtopicModalOpen ? "subtopic-create-open" : "subtopic-create-closed"} open={subtopicModalOpen} parent={subtopicParent} initial={{ title: "", description: "", notes: "", priority: "none" }} onClose={() => { setSubtopicModalOpen(false); setSubtopicParent(null); }} onSave={saveSubtopic} onSaveBulk={saveSubtopicsBulk} />
       <LinkModal open={linkModalOpen} node={selectedNode} diagrams={diagrams} onClose={() => setLinkModalOpen(false)} onSave={async (resourceType, resourceId) => { if (selectedNode) await addLink({ nodeId: selectedNode.id, resourceType, resourceId }); setLinkModalOpen(false); }} />
       <ConfirmDialog open={Boolean(roadmapToDelete)} title="Excluir trilha?" message={"A trilha “" + (roadmapToDelete?.title ?? "") + "” e todos os seus tópicos e vínculos serão removidos."} tone="danger" onCancel={() => setRoadmapToDelete(null)} onConfirm={async () => { if (roadmapToDelete) { await deleteRoadmap(roadmapToDelete.id); setSelectedId(null); setSelectedNodeId(null); } setRoadmapToDelete(null); }} />
       <ConfirmDialog open={Boolean(nodeToDelete)} title="Excluir tópico?" message={"“" + (nodeToDelete?.title ?? "") + "” e seus subtópicos serão removidos."} tone="danger" onCancel={() => setNodeToDelete(null)} onConfirm={async () => { if (nodeToDelete) { await deleteNode(nodeToDelete.id); setSelectedNodeId(null); } setNodeToDelete(null); }} />

@@ -1,6 +1,7 @@
 export type StudyRoadmapStatus = "draft" | "active" | "completed" | "archived";
 
 export type StudyRoadmapNodeKind = "topic" | "subtopic";
+export type StudyRoadmapPriority = "none" | "low" | "medium" | "high" | "urgent";
 
 export type StudyRoadmapResourceType = "flashcard" | "quiz-question" | "diagram";
 
@@ -21,6 +22,7 @@ export interface StudyRoadmapNode {
   roadmapId: string;
   parentId?: string;
   kind: StudyRoadmapNodeKind;
+  priority?: StudyRoadmapPriority;
   title: string;
   description?: string;
   notes?: string;

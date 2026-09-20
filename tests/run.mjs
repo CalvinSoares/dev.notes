@@ -76,6 +76,13 @@ try {
   assert.equal(movedNested.find((node) => node.id === "child-b").order, 0);
   assert.equal(movedNested.find((node) => node.id === "child-a").order, 1);
 
+  const priorityNodes = [
+    { id: "p-none", roadmapId: "r1", title: "Normal", order: 0, priority: "none" },
+    { id: "p-urgent", roadmapId: "r1", title: "Urgente", order: 3, priority: "urgent" },
+    { id: "p-high", roadmapId: "r1", title: "Alta", order: 1, priority: "high" },
+  ];
+  assert.deepEqual(roadmap.buildRoadmapChildren(priorityNodes).get(undefined).map((node) => node.id), ["p-urgent", "p-high", "p-none"]);
+
   const materialProgress = roadmap.getRoadmapMaterialProgress([
     { id: "link-card", nodeId: "topic", resourceType: "flashcard", resourceId: "card-1", order: 0, createdAt: "2026-01-01" },
     { id: "link-question", nodeId: "topic", resourceType: "quiz-question", resourceId: "q1", order: 1, createdAt: "2026-01-01" },
