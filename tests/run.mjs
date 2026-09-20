@@ -28,6 +28,9 @@ try {
   assert.equal(quickQuestion.statement, "Enunciado de teste.");
   assert.deepEqual(quickQuestion.options.map((option) => option.id), ["A", "B", "C", "D", "E"]);
   assert.equal(quickQuestion.options[1].text, "510");
+  const inlineQuestion = modals.parseQuickQuestionText("A norma não inclui: A) Criar camadas B) Abstrair funções C) Maximizar o fluxo D) Preservar interfaces E) Definir funções");
+  assert.deepEqual(inlineQuestion.options.map((option) => option.id), ["A", "B", "C", "D", "E"]);
+  assert.equal(inlineQuestion.options[2].text, "Maximizar o fluxo");
 
   const answerKey = pdf.parseAnswerKey("1 - A\n2 - C");
   assert.equal(answerKey.get(1), "A");

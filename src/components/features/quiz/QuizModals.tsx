@@ -223,7 +223,7 @@ export function QuestionForm({ onSubmit, onCancel, exams, defaultExamId, questio
 
 export function parseQuickQuestionText(raw: string): { statement: string; options: QuizQuestionOption[] } {
   const normalized = raw.replace(/\r\n?/g, "\n").replace(/\u00a0/g, " ").replace(/\\\s*/g, "\n").trim();
-  const marker = /(?:^|\n)\s*\(([A-E])\)\s*/gi;
+  const marker = /(?:^|\n|\s+)(?:\(([A-E])\)|([A-E])[.)])(?=\s|$)\s*/g;
   const matches = Array.from(normalized.matchAll(marker));
   if (!matches.length) return { statement: normalized, options: [] };
   const firstIndex = matches[0].index ?? 0;
@@ -231,7 +231,8 @@ export function parseQuickQuestionText(raw: string): { statement: string; option
   const options = matches.map((match, index) => {
     const start = (match.index ?? 0) + match[0].length;
     const end = index + 1 < matches.length ? (matches[index + 1].index ?? normalized.length) : normalized.length;
-    return { id: match[1].toUpperCase() as QuestionOptionId, text: normalized.slice(start, end).trim() };
+    const optionId = (match[1] ?? match[2]).toUpperCase() as QuestionOptionId;
+    return { id: optionId, text: normalized.slice(start, end).trim() };
   }).filter((option) => option.text);
   return { statement, options };
 }
@@ -269,7 +270,7 @@ export function QuickQuestionForm({ onSubmit, onCancel, exams, defaultExamId }: 
   return <form onSubmit={submit} className="p-5 md:p-6 space-y-5">
     <div className="flex gap-3 items-start rounded-wobbly border border-retro-blue/40 bg-retro-blue/10 p-4 text-[13px] text-retro-text-dim">
       <CircleHelp size={18} className="mt-0.5 shrink-0 text-retro-blue" />
-      <p>Cole o enunciado completo com as alternativas no formato <strong className="text-retro-text">(A) texto</strong> até <strong className="text-retro-text">(E) texto</strong>. O sistema separa as partes e mostra uma prévia antes de salvar.</p>
+      <p>Cole o enunciado completo com as alternativas no formato <strong className="text-retro-text">(A) texto</strong>, <strong className="text-retro-text">A) texto</strong> ou <strong className="text-retro-text">A. texto</strong>. O sistema separa as partes e mostra uma prévia antes de salvar.</p>
     </div>
     <label className="block text-[13px] text-retro-text-dim">Texto da questão *<textarea autoFocus required value={rawText} onChange={(event) => setRawText(event.target.value)} className="retro-input mt-1 min-h-48 leading-relaxed" placeholder={"Enunciado...\n\n(A) Primeira alternativa\n(B) Segunda alternativa\n(C) Terceira alternativa\n(D) Quarta alternativa\n(E) Quinta alternativa"} /></label>
     <div className="grid gap-3 sm:grid-cols-2">
