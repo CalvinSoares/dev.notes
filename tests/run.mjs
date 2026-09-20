@@ -67,6 +67,15 @@ try {
   assert.equal(bulkItems[1].description, "Usa N(N−1)2 enlaces");
   assert.equal(bulkItems[2].description, "Rede Clos N−1");
 
+  const nestedMoveNodes = [
+    { id: "parent", roadmapId: "r1", kind: "topic", title: "Redes", order: 0, completed: false, createdAt: "2026-01-01", updatedAt: "2026-01-01" },
+    { id: "child-a", roadmapId: "r1", parentId: "parent", kind: "subtopic", title: "Arquitetura", order: 0, completed: false, createdAt: "2026-01-01", updatedAt: "2026-01-01" },
+    { id: "child-b", roadmapId: "r1", parentId: "parent", kind: "subtopic", title: "Topologias", order: 0, completed: false, createdAt: "2026-01-02", updatedAt: "2026-01-02" },
+  ];
+  const movedNested = roadmap.moveRoadmapNode("child-b", "up", nestedMoveNodes, "2026-09-20T00:00:00.000Z");
+  assert.equal(movedNested.find((node) => node.id === "child-b").order, 0);
+  assert.equal(movedNested.find((node) => node.id === "child-a").order, 1);
+
   const materialProgress = roadmap.getRoadmapMaterialProgress([
     { id: "link-card", nodeId: "topic", resourceType: "flashcard", resourceId: "card-1", order: 0, createdAt: "2026-01-01" },
     { id: "link-question", nodeId: "topic", resourceType: "quiz-question", resourceId: "q1", order: 1, createdAt: "2026-01-01" },

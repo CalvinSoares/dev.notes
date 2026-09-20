@@ -79,18 +79,25 @@ export function setRoadmapNodeCompletion(
 export function moveRoadmapNode(nodeId: string, direction: "up" | "down", nodes: StudyRoadmapNode[], now = new Date().toISOString()) {
   const target = nodes.find((node) => node.id === nodeId);
   if (!target) return nodes;
-  const siblings = nodes.filter((node) => node.roadmapId === target.roadmapId && node.parentId === target.parentId).sort((left, right) => left.order - right.order);
+
+  const siblings = nodes
+    .filter((node) => node.roadmapId === target.roadmapId && node.parentId === target.parentId)
+    .sort((left, right) => left.order - right.order || left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
   const index = siblings.findIndex((node) => node.id === nodeId);
   const nextIndex = direction === "up" ? index - 1 : index + 1;
   if (index < 0 || nextIndex < 0 || nextIndex >= siblings.length) return nodes;
-  const swapped = siblings[nextIndex];
+
+  const reordered = [...siblings];
+  [reordered[index], reordered[nextIndex]] = [reordered[nextIndex], reordered[index]];
+  const orderById = new Map(reordered.map((node, order) => [node.id, order]));
+
   return nodes.map((node) => {
-    if (node.id === target.id) return { ...node, order: swapped.order, updatedAt: now };
-    if (node.id === swapped.id) return { ...node, order: target.order, updatedAt: now };
-    return node;
+    const order = orderById.get(node.id);
+    return order === undefined
+      ? node
+      : { ...node, order, updatedAt: now };
   });
 }
-
 export function getRoadmapNodeAncestors(nodeId: string, nodes: StudyRoadmapNode[]) {
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const ancestors: StudyRoadmapNode[] = [];
