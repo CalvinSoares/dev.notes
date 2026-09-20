@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { BookOpen, GitBranch, Link2, ListChecks, Route } from "lucide-react";
-import { getRoadmapDescendantNodes } from "@core/lib/roadmap";
+import { getRoadmapDescendantNodes, parseRoadmapImportText } from "@core/lib/roadmap";
 import type { StudyRoadmap, StudyRoadmapNode } from "@core/types/roadmap";
 import { useFlashcardStore } from "@/store/useFlashcardStore";
 import { useQuizStore } from "@/store/useQuizStore";
@@ -219,56 +219,97 @@ export function SubtopicQuickCreateModal({
   initial,
   onClose,
   onSave,
+  onSaveBulk,
 }: {
   open: boolean;
   parent: StudyRoadmapNode | null;
   initial: SubtopicQuickCreateForm;
   onClose: () => void;
   onSave: (form: SubtopicQuickCreateForm) => Promise<void>;
+  onSaveBulk: (text: string) => Promise<void>;
 }) {
   const [form, setForm] = useState(initial);
+  const [mode, setMode] = useState<"single" | "bulk">("single");
+  const [bulkText, setBulkText] = useState("");
   const [saving, setSaving] = useState(false);
   const set = (patch: Partial<SubtopicQuickCreateForm>) => setForm((current) => ({ ...current, ...patch }));
+  const bulkPreview = useMemo(() => parseRoadmapImportText(bulkText), [bulkText]);
 
   return (
     <RetroModal
       open={open}
       onClose={onClose}
-      title="Novo subtópico"
+      title={mode === "bulk" ? "Criar subtópicos em massa" : "Novo subtópico"}
       subtitle={parent ? "Dentro de “" + parent.title + "”" : "Adicione um nível à trilha."}
       icon={<ListChecks size={17} />}
       accent="orange"
-      size="md"
+      size={mode === "bulk" ? "lg" : "md"}
       footer={
         <>
           <RetroButton onClick={onClose}>cancelar</RetroButton>
           <RetroButton
             variant="primary"
-            disabled={saving || !form.title.trim()}
+            disabled={saving || (mode === "single" ? !form.title.trim() : !bulkText.trim() || !bulkPreview.length)}
             onClick={async () => {
               setSaving(true);
-              await onSave(form);
-              setSaving(false);
+              try {
+                if (mode === "bulk") await onSaveBulk(bulkText);
+                else await onSave(form);
+              } finally {
+                setSaving(false);
+              }
             }}
           >
-            criar subtópico
+            {saving ? "criando..." : mode === "bulk" ? "criar subtópicos" : "criar subtópico"}
           </RetroButton>
         </>
       }
     >
       <div className="p-5 space-y-4">
-        <label className="block text-[12px] text-retro-comment">
-          Nome *
-          <input autoFocus maxLength={160} value={form.title} onChange={(event) => set({ title: event.target.value })} className="retro-input w-full mt-1" placeholder="Ex.: Protocolos de roteamento" />
-        </label>
-        <label className="block text-[12px] text-retro-comment">
-          Descrição
-          <textarea maxLength={600} value={form.description} onChange={(event) => set({ description: event.target.value })} className="retro-input w-full mt-1 min-h-20" placeholder="O que entra neste subtópico?" />
-        </label>
-        <label className="block text-[12px] text-retro-comment">
-          Anotação
-          <textarea maxLength={2000} value={form.notes} onChange={(event) => set({ notes: event.target.value })} className="retro-input w-full mt-1 min-h-24" placeholder="Resumo, fontes ou lembretes..." />
-        </label>
+        <div className="grid grid-cols-2 gap-2 p-1 rounded-lg border border-retro-border bg-retro-panelHover">
+          <button type="button" onClick={() => setMode("single")} className={"rounded px-3 py-2 text-[12px] " + (mode === "single" ? "bg-retro-orange/15 text-retro-orange border border-retro-orange/60" : "text-retro-comment hover:text-retro-text")}>
+            um subtópico
+          </button>
+          <button type="button" onClick={() => setMode("bulk")} className={"rounded px-3 py-2 text-[12px] " + (mode === "bulk" ? "bg-retro-orange/15 text-retro-orange border border-retro-orange/60" : "text-retro-comment hover:text-retro-text")}>
+            vários subtópicos
+          </button>
+        </div>
+
+        {mode === "single" ? (
+          <>
+            <label className="block text-[12px] text-retro-comment">
+              Nome *
+              <input autoFocus maxLength={160} value={form.title} onChange={(event) => set({ title: event.target.value })} className="retro-input w-full mt-1" placeholder="Ex.: Protocolos de roteamento" />
+            </label>
+            <label className="block text-[12px] text-retro-comment">
+              Descrição
+              <textarea maxLength={600} value={form.description} onChange={(event) => set({ description: event.target.value })} className="retro-input w-full mt-1 min-h-20" placeholder="O que entra neste subtópico?" />
+            </label>
+            <label className="block text-[12px] text-retro-comment">
+              Anotação
+              <textarea maxLength={2000} value={form.notes} onChange={(event) => set({ notes: event.target.value })} className="retro-input w-full mt-1 min-h-24" placeholder="Resumo, fontes ou lembretes..." />
+            </label>
+          </>
+        ) : (
+          <>
+            <label className="block text-[12px] text-retro-comment">
+              Lista de subtópicos *
+              <textarea
+                autoFocus
+                value={bulkText}
+                onChange={(event) => setBulkText(event.target.value)}
+                className="retro-input w-full mt-1 min-h-52 font-mono text-[12px] leading-relaxed"
+                placeholder={"- Roteamento estático | Rotas configuradas manualmente\n  - Tabela de rotas | Entradas e métricas\n  - Rota padrão | Saída quando não há correspondência\n- Roteamento dinâmico | Rotas aprendidas por protocolo"}
+              />
+            </label>
+            <div className="rounded-lg border border-dashed border-retro-orange/70 bg-retro-orange/10 p-3 text-[11px] text-retro-comment">
+              <strong className="text-retro-orange">Formato aceito</strong>
+              <p className="mt-1">Uma linha por item usando <code className="text-retro-text">Nome | Descrição</code>. Use dois espaços no começo da linha para criar um filho do item anterior. Linhas sem indentação ficam no mesmo nível.</p>
+              <pre className="mt-2 overflow-x-auto rounded border border-retro-border/60 bg-retro-bg p-2 text-[11px] leading-relaxed text-retro-text">{"- Roteamento estático | Rotas manuais\n  - Tabela de rotas | Entradas e métricas\n- Roteamento dinâmico | Rotas aprendidas"}</pre>
+            </div>
+            <p className="text-[11px] text-retro-comment">{bulkPreview.length} {bulkPreview.length === 1 ? "subtópico reconhecido" : "subtópicos reconhecidos"} · descrições serão preservadas.</p>
+          </>
+        )}
       </div>
     </RetroModal>
   );

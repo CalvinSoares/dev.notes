@@ -107,6 +107,7 @@ export function getRoadmapNodeAncestors(nodeId: string, nodes: StudyRoadmapNode[
 export interface RoadmapImportItem {
   title: string;
   depth: number;
+  description?: string;
 }
 
 export function parseRoadmapImportText(text: string): RoadmapImportItem[] {
@@ -115,13 +116,16 @@ export function parseRoadmapImportText(text: string): RoadmapImportItem[] {
   let hasSection = false;
   return rawLines.map((raw) => {
     const indentation = raw.match(/^\s*/)?.[0] ?? "";
-    const title = raw.replace(/^\s*[-*•]\s*/, "").replace(/^#+\s*/, "").trim();
+    const content = raw.replace(/^\s*[-*•]\s*/, "").replace(/^#+\s*/, "").trim();
+    const [titlePart, ...descriptionParts] = content.split("|");
+    const title = titlePart.trim();
+    const description = descriptionParts.join("|").trim() || undefined;
     const isPart = /^PARTE\s+\d+/i.test(title);
     const isNumberedSection = /^\d+\.\s+/.test(title);
     if (isNumberedSection) hasSection = true;
     const inferredDepth = isPart ? 0 : isNumberedSection ? (hasParts ? 2 : 0) : hasSection ? (hasParts ? 4 : 2) : 0;
     const explicitDepth = indentation.replace(/\t/g, "  ").length;
-    return { title, depth: Math.max(inferredDepth, explicitDepth) };
+    return description ? { title, description, depth: Math.max(inferredDepth, explicitDepth) } : { title, depth: Math.max(inferredDepth, explicitDepth) };
   }).filter((item) => item.title);
 }
 

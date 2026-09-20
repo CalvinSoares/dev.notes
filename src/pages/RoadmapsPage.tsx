@@ -123,6 +123,30 @@ export function RoadmapsPage() {
     setSubtopicModalOpen(false);
   };
 
+  const saveSubtopicsBulk = async (text: string) => {
+    if (!selectedRoadmap || !subtopicParent) return;
+    const stack: Array<{ depth: number; id: string }> = [{ depth: -1, id: subtopicParent.id }];
+    let lastCreated: StudyRoadmapNode | null = null;
+
+    for (const line of parseRoadmapImportText(text)) {
+      while (stack.length > 0 && stack[stack.length - 1].depth >= line.depth) stack.pop();
+      const parentId = stack[stack.length - 1]?.id ?? subtopicParent.id;
+      const created = await addNode({
+        roadmapId: selectedRoadmap.id,
+        parentId,
+        kind: "subtopic",
+        title: line.title,
+        description: line.description,
+      });
+      stack.push({ depth: line.depth, id: created.id });
+      lastCreated = created;
+    }
+
+    if (lastCreated) setSelectedNodeId(lastCreated.id);
+    setSubtopicParent(null);
+    setSubtopicModalOpen(false);
+  };
+
   const saveRoadmap = async (form: RoadmapForm) => {
     if (roadmapModal.editing) await updateRoadmap(roadmapModal.editing.id, form);
     else {
@@ -154,7 +178,7 @@ export function RoadmapsPage() {
     for (const line of parseRoadmapImportText(text)) {
       while (stack.length > 0 && stack[stack.length - 1].depth >= line.depth) stack.pop();
       const parentId = stack[stack.length - 1]?.id;
-      const created = await addNode({ roadmapId: targetRoadmap.id, parentId, kind: parentId ? "subtopic" : "topic", title: line.title });
+      const created = await addNode({ roadmapId: targetRoadmap.id, parentId, kind: parentId ? "subtopic" : "topic", title: line.title, description: line.description });
       stack.push({ depth: line.depth, id: created.id });
     }
     setImportModalOpen(false);
@@ -217,7 +241,7 @@ export function RoadmapsPage() {
       <RoadmapImportModal open={importModalOpen} onClose={() => setImportModalOpen(false)} onImport={importRoadmapTopics} />
       <RoadmapFormModal key={roadmapModal.editing?.id ?? (roadmapModal.open ? "new-open" : "new-closed")} open={roadmapModal.open} initial={roadmapForm} onClose={() => setRoadmapModal({ open: false, editing: null })} onSave={saveRoadmap} />
       {selectedRoadmap && <NodeFormModal key={nodeModal.editing?.id ?? (nodeModal.open ? "new-open" : "new-closed")} open={nodeModal.open} initial={nodeForm} nodes={roadmapNodes} editingId={nodeModal.editing?.id ?? null} onClose={() => setNodeModal({ open: false, editing: null })} onSave={saveNode} />}
-      <SubtopicQuickCreateModal key={subtopicModalOpen ? "subtopic-create-open" : "subtopic-create-closed"} open={subtopicModalOpen} parent={subtopicParent} initial={{ title: "", description: "", notes: "" }} onClose={() => { setSubtopicModalOpen(false); setSubtopicParent(null); }} onSave={saveSubtopic} />
+      <SubtopicQuickCreateModal key={subtopicModalOpen ? "subtopic-create-open" : "subtopic-create-closed"} open={subtopicModalOpen} parent={subtopicParent} initial={{ title: "", description: "", notes: "" }} onClose={() => { setSubtopicModalOpen(false); setSubtopicParent(null); }} onSave={saveSubtopic} onSaveBulk={saveSubtopicsBulk} />
       <LinkModal open={linkModalOpen} node={selectedNode} diagrams={diagrams} onClose={() => setLinkModalOpen(false)} onSave={async (resourceType, resourceId) => { if (selectedNode) await addLink({ nodeId: selectedNode.id, resourceType, resourceId }); setLinkModalOpen(false); }} />
       <ConfirmDialog open={Boolean(roadmapToDelete)} title="Excluir trilha?" message={"A trilha “" + (roadmapToDelete?.title ?? "") + "” e todos os seus tópicos e vínculos serão removidos."} tone="danger" onCancel={() => setRoadmapToDelete(null)} onConfirm={async () => { if (roadmapToDelete) { await deleteRoadmap(roadmapToDelete.id); setSelectedId(null); setSelectedNodeId(null); } setRoadmapToDelete(null); }} />
       <ConfirmDialog open={Boolean(nodeToDelete)} title="Excluir tópico?" message={"“" + (nodeToDelete?.title ?? "") + "” e seus subtópicos serão removidos."} tone="danger" onCancel={() => setNodeToDelete(null)} onConfirm={async () => { if (nodeToDelete) { await deleteNode(nodeToDelete.id); setSelectedNodeId(null); } setNodeToDelete(null); }} />
