@@ -210,8 +210,8 @@ export function QuizPage() {
     await updateQuestion(editingQuestionId, data);
     setEditingQuestionId(null);
   };
-  const addQuickQuestion = async (data: QuizQuestionInput) => {
-    await addQuestion(data);
+  const addQuickQuestions = async (items: QuizQuestionInput[]) => {
+    for (const item of items) await addQuestion(item);
     setQuickQuestionModalOpen(false);
   };
   const importPdfQuestions = async (items: QuizQuestionInput[]) => {
@@ -317,7 +317,7 @@ export function QuizPage() {
         {questionPreview && <div className="p-5 space-y-4"><p className="text-[15px] leading-relaxed text-retro-text whitespace-pre-wrap">{questionPreview.statement}</p><div className="space-y-2">{questionPreview.options.map((option) => <div key={option.id} className="rounded-lg border border-retro-border p-3 text-[13px] text-retro-text"><strong className="text-retro-blue mr-2">{option.id}.</strong>{option.text}</div>)}</div>{questionPreview.explanation && <div className="border-t border-retro-border/60 pt-4 text-[13px] text-retro-text-dim whitespace-pre-wrap"><strong className="text-retro-text">Explicação:</strong>{" " + questionPreview.explanation}</div>}</div>}
 
       </RetroModal><RetroModal open={questionModalOpen} onClose={() => setQuestionModalOpen(false)} title="Nova questão" subtitle="Cadastre uma questão e seu gabarito para usá-la nos simulados." size="xl" icon={<CircleHelp size={16} />}><QuestionForm key="new-question" exams={exams} defaultExamId={examFilter === "all" ? undefined : examFilter} onSubmit={addNewQuestion} onCancel={() => setQuestionModalOpen(false)} /></RetroModal>
-      <RetroModal open={quickQuestionModalOpen} onClose={() => setQuickQuestionModalOpen(false)} title="Cadastro rápido de questão" subtitle="Cole o enunciado com as alternativas e revise a prévia antes de cadastrar." size="xl" icon={<CircleHelp size={16} />}><QuickQuestionForm exams={exams} defaultExamId={examFilter === "all" ? undefined : examFilter} onSubmit={addQuickQuestion} onCancel={() => setQuickQuestionModalOpen(false)} /></RetroModal>
+      <RetroModal open={quickQuestionModalOpen} onClose={() => setQuickQuestionModalOpen(false)} title="Cadastro rápido de questão" subtitle="Cole o enunciado com as alternativas e revise a prévia antes de cadastrar." size="xl" icon={<CircleHelp size={16} />}><QuickQuestionForm exams={exams} defaultExamId={examFilter === "all" ? undefined : examFilter} onSubmit={addQuickQuestions} onCancel={() => setQuickQuestionModalOpen(false)} /></RetroModal>
       <RetroModal open={examModalOpen} onClose={() => setExamModalOpen(false)} title="Nova prova/vaga" subtitle="Crie o pai que receberá as questões." size="lg" icon={<BookOpenCheck size={16} />}><ExamForm onSubmit={addNewExam} onCancel={() => setExamModalOpen(false)} /></RetroModal>
       <RetroModal open={Boolean(editingExam)} onClose={() => setEditingExamId(null)} title="Editar prova/vaga" subtitle="Atualize os dados do agrupador sem mexer nas questões." size="lg" icon={<Pencil size={16} />}><ExamForm key={editingExamId ?? "none"} exam={editingExam} onSubmit={saveExamEdits} onCancel={() => setEditingExamId(null)} /></RetroModal>
       <DuplicateExamModal key={duplicateExamId ?? "none"} open={Boolean(duplicateExamRecord)} exam={duplicateExamRecord} onClose={() => setDuplicateExamId(null)} onSave={duplicateSelectedExam} />

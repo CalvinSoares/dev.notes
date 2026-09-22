@@ -221,47 +221,106 @@ export function QuestionForm({ onSubmit, onCancel, exams, defaultExamId, questio
   );
 }
 
-export function parseQuickQuestionText(raw: string): { statement: string; options: QuizQuestionOption[] } {
-  const normalized = raw.replace(/\r\n?/g, "\n").replace(/\u00a0/g, " ").replace(/\\\s*/g, "\n").trim();
-  const marker = /(?:^|\n|\s+)(?:\(([A-E])\)|([A-E])[.)])(?=\s|$)\s*/g;
+export interface ParsedQuickQuestion {
+  statement: string;
+  options: QuizQuestionOption[];
+  correctOptions: QuestionOptionId[];
+  correctOption?: QuestionOptionId;
+}
+
+function normalizeQuickQuestionText(raw: string) {
+  return raw.replace(/\r\n?/g, "\n").replace(/\u00a0/g, " ").replace(/\\\s*/g, "\n").trim();
+}
+
+export function splitQuickQuestionText(raw: string): string[] {
+  const normalized = normalizeQuickQuestionText(raw);
+  if (!normalized) return [];
+  const separator = /^\s*(?:-{3,}|={3,}|(?:quest(?:ão|ao)|q)\s*\d+\s*:?)\s*$/i;
+  const chunks: string[] = [];
+  let current: string[] = [];
+  for (const line of normalized.split("\n")) {
+    if (separator.test(line)) {
+      if (current.join("\n").trim()) chunks.push(current.join("\n").trim());
+      current = [];
+      continue;
+    }
+    current.push(line);
+  }
+  if (current.join("\n").trim()) chunks.push(current.join("\n").trim());
+  return chunks.length ? chunks : [normalized];
+}
+
+function cleanQuickOptionText(raw: string) {
+  let text = raw.trim();
+  let marked = false;
+  const leading = text.match(/^(?:\[\s*x\s*\]|x|✓)\s+/i);
+  if (leading) {
+    marked = true;
+    text = text.slice(leading[0].length).trim();
+  }
+  const trailing = text.match(/\s+(?:\[\s*x\s*\]|x|✓)\s*$/i);
+  if (trailing) {
+    marked = true;
+    text = text.slice(0, trailing.index).trim();
+  }
+  return { text, marked };
+}
+
+export function parseQuickQuestionText(raw: string): ParsedQuickQuestion {
+  const normalized = normalizeQuickQuestionText(raw);
+  const marker = /(?:^|\n|\s+)(?:x\s+)?(?:\(([A-E])\)|([A-E])[.)])(?=\s|$)\s*/gi;
   const matches = Array.from(normalized.matchAll(marker));
-  if (!matches.length) return { statement: normalized, options: [] };
+  if (!matches.length) return { statement: normalized, options: [], correctOptions: [] };
   const firstIndex = matches[0].index ?? 0;
   const statement = normalized.slice(0, firstIndex).trim();
   const options = matches.map((match, index) => {
     const start = (match.index ?? 0) + match[0].length;
     const end = index + 1 < matches.length ? (matches[index + 1].index ?? normalized.length) : normalized.length;
-    const optionId = (match[1] ?? match[2]).toUpperCase() as QuestionOptionId;
-    return { id: optionId, text: normalized.slice(start, end).trim() };
+    const cleaned = cleanQuickOptionText(normalized.slice(start, end));
+    const prefixMarked = /^\s*x\s+/i.test(match[0]);
+    return {
+      id: (match[1] ?? match[2]).toUpperCase() as QuestionOptionId,
+      text: cleaned.text,
+      marked: cleaned.marked || prefixMarked,
+    };
   }).filter((option) => option.text);
-  return { statement, options };
+  const correctOptions = options.filter((option) => option.marked).map((option) => option.id);
+  return {
+    statement,
+    options: options.map(({ id, text }) => ({ id, text })),
+    correctOptions,
+    correctOption: correctOptions.length === 1 ? correctOptions[0] : undefined,
+  };
 }
 
-export function QuickQuestionForm({ onSubmit, onCancel, exams, defaultExamId }: { onSubmit: (data: QuizQuestionInput) => Promise<void>; onCancel: () => void; exams: QuizExam[]; defaultExamId?: string }) {
+export function parseQuickQuestionBatch(raw: string): ParsedQuickQuestion[] {
+  return splitQuickQuestionText(raw).map(parseQuickQuestionText).filter((question) => question.statement || question.options.length);
+}
+
+export function QuickQuestionForm({ onSubmit, onCancel, exams, defaultExamId }: { onSubmit: (data: QuizQuestionInput[]) => Promise<void>; onCancel: () => void; exams: QuizExam[]; defaultExamId?: string }) {
   const [rawText, setRawText] = useState("");
   const [examId, setExamId] = useState(defaultExamId ?? exams[0]?.id ?? "");
   const [subject, setSubject] = useState("Conhecimentos específicos");
   const [topic, setTopic] = useState("Revisão rápida");
-  const [correctOption, setCorrectOption] = useState<QuestionOptionId>("A");
   const [saving, setSaving] = useState(false);
-  const parsed = parseQuickQuestionText(rawText);
-  const validCorrectOption = parsed.options.some((option) => option.id === correctOption);
-  const canSave = Boolean(examId && subject.trim() && topic.trim() && parsed.statement && parsed.options.length >= 2 && validCorrectOption);
+  const parsedQuestions = parseQuickQuestionBatch(rawText);
+  const validQuestions = parsedQuestions.filter((question) => Boolean(question.statement && question.options.length >= 2 && question.correctOption));
+  const canSave = Boolean(examId && subject.trim() && topic.trim() && parsedQuestions.length > 0 && validQuestions.length === parsedQuestions.length);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!canSave) return;
     setSaving(true);
     try {
-      await onSubmit({
+      await onSubmit(validQuestions.map((question) => ({
         examId,
-        statement: parsed.statement,
-        options: parsed.options,
-        correctOption,
+        statement: question.statement,
+        options: question.options,
+        correctOption: question.correctOption as QuestionOptionId,
         subject: subject.trim(),
         topic: topic.trim(),
         examName: exams.find((exam) => exam.id === examId)?.title,
-      });
+      })));
     } finally {
       setSaving(false);
     }
@@ -270,20 +329,29 @@ export function QuickQuestionForm({ onSubmit, onCancel, exams, defaultExamId }: 
   return <form onSubmit={submit} className="p-5 md:p-6 space-y-5">
     <div className="flex gap-3 items-start rounded-wobbly border border-retro-blue/40 bg-retro-blue/10 p-4 text-[13px] text-retro-text-dim">
       <CircleHelp size={18} className="mt-0.5 shrink-0 text-retro-blue" />
-      <p>Cole o enunciado completo com as alternativas no formato <strong className="text-retro-text">(A) texto</strong>, <strong className="text-retro-text">A) texto</strong> ou <strong className="text-retro-text">A. texto</strong>. O sistema separa as partes e mostra uma prévia antes de salvar.</p>
+      <p>Separe as questões com uma linha <strong className="text-retro-text">---</strong>. Em cada alternativa, marque o gabarito com <strong className="text-retro-text">X</strong>, por exemplo <strong className="text-retro-text">(B) X texto</strong> ou <strong className="text-retro-text">X B) texto</strong>. A prévia precisa reconhecer exatamente um gabarito por questão.</p>
     </div>
-    <label className="block text-[13px] text-retro-text-dim">Texto da questão *<textarea autoFocus required value={rawText} onChange={(event) => setRawText(event.target.value)} className="retro-input mt-1 min-h-48 leading-relaxed" placeholder={"Enunciado...\n\n(A) Primeira alternativa\n(B) Segunda alternativa\n(C) Terceira alternativa\n(D) Quarta alternativa\n(E) Quinta alternativa"} /></label>
+    <label className="block text-[13px] text-retro-text-dim">Questões *<textarea autoFocus required value={rawText} onChange={(event) => setRawText(event.target.value)} className="retro-input mt-1 min-h-56 leading-relaxed" placeholder={"Enunciado da questão 1\n(A) alternativa\n(B) X alternativa correta\n(C) alternativa\n---\nEnunciado da questão 2\nA) alternativa\nB) alternativa\nC) X alternativa correta"} /></label>
     <div className="grid gap-3 sm:grid-cols-2">
       <label className="text-[13px] text-retro-text-dim sm:col-span-2">Prova/vaga *<select required value={examId} onChange={(event) => setExamId(event.target.value)} className="retro-input mt-1"><option value="">selecione a prova/vaga</option>{exams.map((exam) => <option key={exam.id} value={exam.id}>{exam.title}</option>)}</select></label>
       <label className="text-[13px] text-retro-text-dim">Disciplina<input value={subject} onChange={(event) => setSubject(event.target.value)} className="retro-input mt-1" /></label>
       <label className="text-[13px] text-retro-text-dim">Tópico<input value={topic} onChange={(event) => setTopic(event.target.value)} className="retro-input mt-1" /></label>
     </div>
     <section className="rounded-wobbly border border-retro-border bg-retro-panel p-4">
-      <div className="flex items-center justify-between gap-3"><h3 className="font-semibold text-retro-text">Prévia reconhecida</h3><span className="text-[12px] text-retro-comment">{parsed.options.length} alternativa(s)</span></div>
-      {parsed.statement ? <p className="mt-3 whitespace-pre-wrap text-[13px] leading-relaxed text-retro-text">{parsed.statement}</p> : <p className="mt-3 text-[13px] text-retro-comment">Cole um texto para visualizar o enunciado.</p>}
-      {parsed.options.length > 0 && <div className="mt-3 space-y-2">{parsed.options.map((option) => <label key={option.id} className={"flex cursor-pointer items-start gap-2 rounded border p-2 text-[13px] " + (correctOption === option.id ? "border-retro-green bg-retro-green/10" : "border-retro-border")}><input type="radio" name="quick-correct-option" checked={correctOption === option.id} onChange={() => setCorrectOption(option.id)} className="mt-1" /><span><strong className="text-retro-blue">{option.id}.</strong> {option.text}</span></label>)}</div>}
+      <div className="flex items-center justify-between gap-3"><h3 className="font-semibold text-retro-text">Prévia reconhecida</h3><span className="text-[12px] text-retro-comment">{parsedQuestions.length} questão(ões) · {validQuestions.length} prontas</span></div>
+      {parsedQuestions.length === 0 && <p className="mt-3 text-[13px] text-retro-comment">Cole as questões para visualizar o resultado.</p>}
+      <div className="mt-3 max-h-96 space-y-3 overflow-y-auto pr-1">
+        {parsedQuestions.map((question, index) => {
+          const valid = Boolean(question.statement && question.options.length >= 2 && question.correctOption);
+          return <article key={index} className={"rounded-wobbly border p-3 " + (valid ? "border-retro-green/50 bg-retro-green/5" : "border-retro-orange/60 bg-retro-orange/5")}>
+            <div className="flex items-center justify-between gap-2"><strong className="text-[13px] text-retro-text">Questão {index + 1}</strong><span className={"text-[11px] font-semibold " + (valid ? "text-retro-green" : "text-retro-orange")}>{valid ? "pronta" : "revise o formato e marque um único X"}</span></div>
+            <p className="mt-2 whitespace-pre-wrap text-[13px] leading-relaxed text-retro-text">{question.statement || "Enunciado não reconhecido."}</p>
+            <div className="mt-2 space-y-1">{question.options.map((option) => <div key={option.id} className={"rounded border p-2 text-[12px] " + (option.id === question.correctOption ? "border-retro-green bg-retro-green/10" : "border-retro-border")}><strong className="mr-1 text-retro-blue">{option.id}.</strong>{option.text}{option.id === question.correctOption && <span className="ml-2 font-semibold text-retro-green">gabarito</span>}</div>)}</div>
+          </article>;
+        })}
+      </div>
     </section>
-    <div className="flex flex-col-reverse gap-3 border-t border-retro-border pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-[12px] text-retro-comment">{canSave ? "Tudo certo para cadastrar." : "Cole um enunciado com pelo menos duas alternativas e escolha o gabarito."}</p><div className="flex justify-end gap-2"><RetroButton type="button" onClick={onCancel}>cancelar</RetroButton><RetroButton type="submit" variant="primary" disabled={!canSave || saving} icon={<Plus size={15} />}>{saving ? "cadastrando..." : "cadastrar questão"}</RetroButton></div></div>
+    <div className="flex flex-col-reverse gap-3 border-t border-retro-border pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-[12px] text-retro-comment">{canSave ? parsedQuestions.length + " questão(ões) prontas para cadastrar." : "Cada questão precisa de enunciado, duas alternativas e exatamente um X no gabarito."}</p><div className="flex justify-end gap-2"><RetroButton type="button" onClick={onCancel}>cancelar</RetroButton><RetroButton type="submit" variant="primary" disabled={!canSave || saving} icon={<Plus size={15} />}>{saving ? "cadastrando..." : "cadastrar " + parsedQuestions.length + " questão(ões)"}</RetroButton></div></div>
   </form>;
 }
 export function PdfImportModal({ open, onClose, onImport, exams }: { open: boolean; onClose: () => void; onImport: (questions: QuizQuestionInput[]) => Promise<void>; exams: QuizExam[] }) {

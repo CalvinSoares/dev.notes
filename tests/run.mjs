@@ -12,7 +12,12 @@ try {
   const pdf = await server.ssrLoadModule("/src/@core/lib/pdf.ts");
   const roadmap = await server.ssrLoadModule("/src/@core/lib/roadmap.ts");
   const modals = await server.ssrLoadModule("/src/components/features/quiz/QuizModals.tsx");
+  const sync = await server.ssrLoadModule("/src/@core/lib/sync.ts");
   const question = (id, topic = "redes") => ({ id, examId: "exam-1", statement: "enunciado", options: [{ id: "A", text: "sim" }, { id: "B", text: "não" }], correctOption: "A", subject: "TI", topic, createdAt: "2026-01-01", updatedAt: "2026-01-01" });
+  const syncPackage = sync.parseSyncPackage({ format: "dunots-sync", version: 1, exportedAt: "2026-09-22T00:00:00.000Z", source: { deviceId: "other", deviceName: "Outro notebook" }, collections: { flashcards: [{ id: "fc-1", updatedAt: "2026-09-22T00:00:00.000Z" }], quiz_questions: [{ id: "q-1", updatedAt: "2026-09-22T00:00:00.000Z" }], quiz_exams: [], leetcode_problems: [], articles: [], snippets: [], study_phases: [], diagrams: [], quiz_attempts: [], study_roadmaps: [], roadmap_nodes: [], roadmap_links: [] } });
+  const syncPreview = sync.previewSyncPackage({ flashcards: [], quiz_questions: [{ id: "q-1", updatedAt: "2026-09-21T00:00:00.000Z" }], quiz_exams: [], leetcode_problems: [], articles: [], snippets: [], study_phases: [], diagrams: [], quiz_attempts: [], study_roadmaps: [], roadmap_nodes: [], roadmap_links: [] }, syncPackage);
+  assert.equal(syncPreview.added, 1);
+  assert.equal(syncPreview.updated, 1);
 
   assert.equal(quiz.getAttemptStatus({ status: "completed" }), "completed");
   assert.equal(quiz.getAttemptStatus({ finishedAt: "2026-01-01" }), "completed");
@@ -31,6 +36,10 @@ try {
   const inlineQuestion = modals.parseQuickQuestionText("A norma não inclui: A) Criar camadas B) Abstrair funções C) Maximizar o fluxo D) Preservar interfaces E) Definir funções");
   assert.deepEqual(inlineQuestion.options.map((option) => option.id), ["A", "B", "C", "D", "E"]);
   assert.equal(inlineQuestion.options[2].text, "Maximizar o fluxo");
+  const batch = modals.parseQuickQuestionBatch("Questão 1: escolha uma opção.\n(A) primeira\n(B) X segunda\n(C) terceira\n---\nQuestão 2: escolha outra.\nA) X quarta\nB) quinta\nC) sexta");
+  assert.equal(batch.length, 2);
+  assert.equal(batch[0].correctOption, "B");
+  assert.equal(batch[1].correctOption, "A");
 
   const answerKey = pdf.parseAnswerKey("1 - A\n2 - C");
   assert.equal(answerKey.get(1), "A");
