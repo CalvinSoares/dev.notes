@@ -24,7 +24,9 @@ function SummaryItem({ label, value, tone }: { label: string; value: number; ton
   return <RetroCard accent={tone} className="!p-4"><p className="text-2xl font-bold text-retro-text">{value}</p><p className="mt-1 text-[12px] text-retro-comment">{label}</p></RetroCard>;
 }
 
-export function SyncPage() {
+export type SyncTab = "pair" | "files" | "conflicts";
+
+export function SyncPanel({ activeTab, onPackageReceived }: { activeTab?: SyncTab; onPackageReceived?: (tab: SyncTab) => void }) {
   const [identity, setIdentity] = useState<SyncIdentity>(() => getDeviceIdentity());
   const [packageData, setPackageData] = useState<SyncPackage | null>(null);
   const [preview, setPreview] = useState<SyncPreview | null>(null);
@@ -56,6 +58,7 @@ export function SyncPage() {
     setConflictChoices(Object.fromEntries(nextPreview.conflictRecords.map((conflict) => [conflict.key, "local"])));
     setFileName(name);
     setApplied(false);
+    onPackageReceived?.(nextPreview.conflicts > 0 ? "conflicts" : "files");
   };
 
   useEffect(() => {
@@ -215,14 +218,16 @@ export function SyncPage() {
 
   const hostInvite = hostInfo ? hostInfo.address + "\n" + hostInfo.token : "";
 
-  return <div className="h-full overflow-y-auto retro-scrollbar paper-page p-5 md:p-8">
+  const compact = activeTab !== undefined;
+
+  return <div className={compact ? "p-1" : "h-full overflow-y-auto retro-scrollbar paper-page p-5 md:p-8"}>
     <div className="mx-auto max-w-6xl">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      {!compact && <div className="flex flex-wrap items-start justify-between gap-4">
         <div><p className="text-[13px] font-semibold text-retro-blue">SINCRONIZAÇÃO</p><h1 className="text-3xl font-bold text-retro-text">Leve seus estudos com você</h1><p className="mt-1 max-w-2xl text-retro-comment">Pareie notebooks pela rede local ou transfira um pacote Dunots. A mesclagem é revisada antes de alterar os dados.</p></div>
         <RetroBadge tone="green" icon={<ShieldCheck size={13} />}>criptografado e temporário</RetroBadge>
-      </div>
+      </div>}
 
-      <RetroCard accent="purple" className="mt-7" title="Parear pela mesma rede Wi-Fi" icon={<Wifi size={16} />}>
+      {(!compact || activeTab === "pair") && <RetroCard accent="purple" className="mt-7" title="Parear pela mesma rede Wi-Fi" icon={<Wifi size={16} />}>
         {!desktop ? <p className="text-[13px] leading-relaxed text-retro-text-dim">O pareamento direto está disponível no executável desktop. Neste navegador, gere e importe um pacote <code>.dunots</code> abaixo.</p> : <div className="grid gap-5 lg:grid-cols-2">
           <div className="space-y-3">
             <h2 className="font-semibold text-retro-text">Notebook que envia</h2>
@@ -237,9 +242,9 @@ export function SyncPage() {
             <RetroButton variant="primary" onClick={() => void handleConnect()} disabled={pairingBusy} icon={<Download size={15} />}>{pairingBusy ? "conectando..." : "receber pacote pela rede"}</RetroButton>
           </div>
         </div>}
-      </RetroCard>
+      </RetroCard>}
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[.8fr_1.2fr]">
+      {(!compact || activeTab === "files") && <div className="mt-4 grid gap-4 lg:grid-cols-[.8fr_1.2fr]">
         <RetroCard accent="blue" title="Este dispositivo" icon={<Smartphone size={16} />}>
           <div className="space-y-4">
             <label className="block text-[13px] text-retro-text-dim">Nome do dispositivo<input value={identity.deviceName} onChange={(event) => setIdentity((current) => ({ ...current, deviceName: saveDeviceName(event.target.value) }))} className="retro-input mt-1" maxLength={60} placeholder="Ex.: Notebook principal" /></label>
@@ -254,9 +259,9 @@ export function SyncPage() {
             <RetroButton variant="primary" onClick={() => void handleExport()} disabled={busy} icon={<Download size={15} />}>{busy ? "preparando..." : "gerar pacote .dunots"}</RetroButton>
           </div>
         </RetroCard>
-      </div>
+      </div>}
 
-      <RetroCard accent="orange" className="mt-4" title="Receber por arquivo" icon={<Upload size={16} />}>
+      {(!compact || activeTab === "files" || activeTab === "conflicts") && <RetroCard accent="orange" className="mt-4" title="Receber por arquivo" icon={<Upload size={16} />}>
         <div className="space-y-4">
           <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-wobbly border-2 border-dashed border-retro-border bg-retro-panelHover p-5 text-center hover:border-retro-blue">
             <FileUp size={25} className="text-retro-blue" />
@@ -274,8 +279,8 @@ export function SyncPage() {
             {applied ? <div className="flex flex-wrap items-center justify-between gap-3 border-t border-retro-border pt-4"><p className="text-[13px] text-retro-green"><CheckCircle2 size={15} className="mr-1 inline" />Dados mesclados com sucesso.</p><RetroButton variant="primary" onClick={() => window.location.reload()} icon={<RefreshCw size={14} />}>recarregar dados</RetroButton></div> : <div className="flex justify-end border-t border-retro-border pt-4"><RetroButton variant="primary" disabled={busy || (!preview.added && !preview.updated && !preview.deleted && !preview.conflicts)} onClick={() => void handleApply()} icon={<Upload size={14} />}>{busy ? "mesclando..." : "aplicar mesclagem"}</RetroButton></div>}
           </div>}
         </div>
-      </RetroCard>
-      <p className="mt-5 text-[12px] text-retro-comment">O pareamento expira em 10 minutos, usa AES-GCM no payload, token inicial de uso único e sessão de retorno de uso único. As duas pontas precisam confirmar a mesclagem manualmente.</p>
+      </RetroCard>}
+      {!compact && <p className="mt-5 text-[12px] text-retro-comment">O pareamento expira em 10 minutos, usa AES-GCM no payload, token inicial de uso único e sessão de retorno de uso único. As duas pontas precisam confirmar a mesclagem manualmente.</p>}
     </div>
   </div>;
 }
