@@ -13,10 +13,12 @@ export const SYNC_COLLECTIONS = [
   "study_roadmaps",
   "roadmap_nodes",
   "roadmap_links",
+  "sync_tombstones",
 ] as const;
 
 export type SyncCollection = typeof SYNC_COLLECTIONS[number];
-export type SyncRecord = { id: string; updatedAt?: string; createdAt?: string; [key: string]: unknown };
+export type SyncRecord = { id: string; updatedAt?: string; createdAt?: string; deletedAt?: string; collection?: string; recordId?: string; [key: string]: unknown };
+export type ConflictChoice = "local" | "incoming";
 
 export interface SyncIdentity {
   deviceId: string;
@@ -37,12 +39,24 @@ export interface SyncPackage {
   collections: Record<SyncCollection, SyncRecord[]>;
 }
 
+export interface SyncConflict {
+  key: string;
+  collection: SyncCollection;
+  id: string;
+  local?: SyncRecord;
+  incoming?: SyncRecord;
+  localUpdatedAt?: string;
+  incomingUpdatedAt?: string;
+}
+
 export interface SyncPreview {
   added: number;
   updated: number;
+  deleted: number;
   unchanged: number;
   conflicts: number;
-  byCollection: Array<{ collection: SyncCollection; added: number; updated: number; unchanged: number; conflicts: number }>;
+  conflictRecords: SyncConflict[];
+  byCollection: Array<{ collection: SyncCollection; added: number; updated: number; deleted: number; unchanged: number; conflicts: number }>;
 }
 
 const DEVICE_ID_KEY = "dunots.device-id";
@@ -83,13 +97,7 @@ export async function createSyncPackage(source: SyncIdentity): Promise<SyncPacka
   for (const collection of SYNC_COLLECTIONS) {
     collections[collection] = await storage.list<SyncRecord>(collection);
   }
-  return {
-    format: "dunots-sync",
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    source,
-    collections,
-  };
+  return { format: "dunots-sync", version: 1, exportedAt: new Date().toISOString(), source, collections };
 }
 
 export function parseSyncPackage(value: unknown): SyncPackage {
@@ -105,9 +113,7 @@ export function parseSyncPackage(value: unknown): SyncPackage {
     if (!Array.isArray(records)) throw new Error("A coleção " + collection + " está inválida.");
     collections[collection] = records.filter((record): record is SyncRecord => Boolean(record && typeof record === "object" && typeof (record as { id?: unknown }).id === "string"));
   }
-  const source = raw.source && typeof raw.source === "object"
-    ? raw.source as SyncIdentity
-    : { deviceId: "unknown", deviceName: "Dispositivo desconhecido" };
+  const source = raw.source && typeof raw.source === "object" ? raw.source as SyncIdentity : { deviceId: "unknown", deviceName: "Dispositivo desconhecido" };
   return {
     format: "dunots-sync",
     version: 1,
@@ -117,16 +123,25 @@ export function parseSyncPackage(value: unknown): SyncPackage {
   };
 }
 
-function recordTime(record: SyncRecord) {
-  return record.updatedAt ?? record.createdAt ?? "";
+function recordTime(record?: SyncRecord) {
+  return record?.deletedAt ?? record?.updatedAt ?? record?.createdAt ?? "";
 }
 
 function sameRecord(left: SyncRecord, right: SyncRecord) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+export function conflictKey(collection: SyncCollection, id: string) {
+  return collection + ":" + id;
+}
+
+function tombstoneKey(tombstone: SyncRecord) {
+  return conflictKey(String(tombstone.collection) as SyncCollection, String(tombstone.recordId));
+}
+
 export function previewSyncPackage(local: Record<SyncCollection, SyncRecord[]>, incoming: SyncPackage): SyncPreview {
-  const byCollection = SYNC_COLLECTIONS.map((collection) => {
+  const conflictRecords: SyncConflict[] = [];
+  const byCollection = SYNC_COLLECTIONS.filter((collection) => collection !== "sync_tombstones").map((collection) => {
     const localById = new Map(local[collection].map((record) => [record.id, record]));
     let added = 0;
     let updated = 0;
@@ -134,6 +149,8 @@ export function previewSyncPackage(local: Record<SyncCollection, SyncRecord[]>, 
     let conflicts = 0;
     for (const record of incoming.collections[collection]) {
       const existing = localById.get(record.id);
+      const localTombstone = (local.sync_tombstones ?? []).find((tombstone) => tombstoneKey(tombstone) === conflictKey(collection, record.id));
+      if (localTombstone && recordTime(localTombstone) >= recordTime(record)) continue;
       if (!existing) {
         added++;
         continue;
@@ -142,20 +159,28 @@ export function previewSyncPackage(local: Record<SyncCollection, SyncRecord[]>, 
         unchanged++;
         continue;
       }
-      const incomingTime = recordTime(record);
-      const localTime = recordTime(existing);
-      if (incomingTime && localTime && incomingTime > localTime) updated++;
-      else conflicts++;
+      updated++;
+      conflicts++;
+      conflictRecords.push({ key: conflictKey(collection, record.id), collection, id: record.id, local: existing, incoming: record, localUpdatedAt: recordTime(existing), incomingUpdatedAt: recordTime(record) });
     }
-    return { collection, added, updated, unchanged, conflicts };
+    for (const tombstone of incoming.collections.sync_tombstones) {
+    if (typeof tombstone.collection !== "string" || tombstone.collection === "sync_tombstones" || typeof tombstone.recordId !== "string") continue;
+      if (tombstone.collection !== collection || typeof tombstone.recordId !== "string") continue;
+      const existing = localById.get(tombstone.recordId);
+      const localTombstone = (local.sync_tombstones ?? []).find((item) => tombstoneKey(item) === tombstoneKey(tombstone));
+      if (localTombstone && recordTime(localTombstone) >= recordTime(tombstone)) continue;
+      if (existing && recordTime(existing) > recordTime(tombstone)) {
+        conflicts++;
+        conflictRecords.push({ key: conflictKey(collection, tombstone.recordId), collection, id: tombstone.recordId, local: existing, incoming: tombstone, localUpdatedAt: recordTime(existing), incomingUpdatedAt: recordTime(tombstone) });
+      }
+    }
+    return { collection, added, updated, deleted: incoming.collections.sync_tombstones.filter((tombstone) => tombstone.collection === collection && typeof tombstone.recordId === "string" && localById.has(tombstone.recordId)).length, unchanged, conflicts };
   });
-  return {
-    added: byCollection.reduce((total, item) => total + item.added, 0),
-    updated: byCollection.reduce((total, item) => total + item.updated, 0),
-    unchanged: byCollection.reduce((total, item) => total + item.unchanged, 0),
-    conflicts: byCollection.reduce((total, item) => total + item.conflicts, 0),
-    byCollection,
-  };
+  const deleted = byCollection.reduce((total, item) => total + item.deleted, 0);
+  const added = byCollection.reduce((total, item) => total + item.added, 0);
+  const updated = byCollection.reduce((total, item) => total + item.updated, 0);
+  const unchanged = byCollection.reduce((total, item) => total + item.unchanged, 0);
+  return { added, updated, deleted, unchanged, conflicts: conflictRecords.length, conflictRecords, byCollection: [...byCollection, { collection: "sync_tombstones", added: incoming.collections.sync_tombstones.length, updated: 0, deleted: 0, unchanged: 0, conflicts: 0 }] };
 }
 
 export async function readLocalSyncData() {
@@ -166,18 +191,64 @@ export async function readLocalSyncData() {
   return collections;
 }
 
-export async function applySyncPackage(incoming: SyncPackage) {
+export async function applySyncPackage(incoming: SyncPackage, resolutions: Record<string, ConflictChoice> = {}) {
   const local = await readLocalSyncData();
   const preview = previewSyncPackage(local, incoming);
-  for (const collection of SYNC_COLLECTIONS) {
-    const localById = new Map(local[collection].map((record) => [record.id, record]));
+  const conflicts = new Map(preview.conflictRecords.map((conflict) => [conflict.key, conflict]));
+  for (const collection of SYNC_COLLECTIONS.filter((item) => item !== "sync_tombstones")) {
     for (const record of incoming.collections[collection]) {
-      const existing = localById.get(record.id);
-      const shouldApply = !existing || sameRecord(existing, record) || recordTime(record) > recordTime(existing);
-      if (shouldApply) await storage.put(collection, record);
+      const key = conflictKey(collection, record.id);
+      const conflict = conflicts.get(key);
+      if (conflict && (resolutions[key] ?? "local") !== "incoming") continue;
+      const localTombstone = (local.sync_tombstones ?? []).find((tombstone) => tombstoneKey(tombstone) === key);
+      if (localTombstone && recordTime(localTombstone) >= recordTime(record)) continue;
+      await storage.remove("sync_tombstones", key);
+      await storage.put(collection, record);
     }
   }
+  for (const tombstone of incoming.collections.sync_tombstones) {
+    if (typeof tombstone.collection !== "string" || tombstone.collection === "sync_tombstones" || typeof tombstone.recordId !== "string") continue;
+    const key = tombstoneKey(tombstone);
+    const conflict = conflicts.get(key);
+    if (conflict && (resolutions[key] ?? "local") !== "incoming") continue;
+    const localRecord = local[tombstone.collection as SyncCollection]?.find((record) => record.id === tombstone.recordId);
+    const localTombstone = (local.sync_tombstones ?? []).find((item) => tombstoneKey(item) === key);
+    if (localTombstone && recordTime(localTombstone) >= recordTime(tombstone)) continue;
+    if (localRecord) await storage.remove(tombstone.collection as SyncCollection, tombstone.recordId);
+    await storage.put("sync_tombstones", tombstone);
+  }
   return preview;
+}
+
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+function base64ToBytes(value: string) {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
+
+async function encryptionKey(secret: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret));
+  return crypto.subtle.importKey("raw", digest, "AES-GCM", false, ["encrypt", "decrypt"]);
+}
+
+export async function encryptSyncPackage(syncPackage: SyncPackage, secret: string) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await encryptionKey(secret), new TextEncoder().encode(JSON.stringify(syncPackage)));
+  return JSON.stringify({ format: "dunots-sync-encrypted", version: 1, iv: bytesToBase64(iv), data: bytesToBase64(new Uint8Array(encrypted)) });
+}
+
+export async function decryptSyncPayload(payload: string, secret: string): Promise<unknown> {
+  const envelope = JSON.parse(payload) as { format?: string; version?: number; iv?: string; data?: string };
+  if (envelope.format !== "dunots-sync-encrypted" || envelope.version !== 1 || !envelope.iv || !envelope.data) throw new Error("O transporte não contém um pacote criptografado válido.");
+  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: base64ToBytes(envelope.iv) }, await encryptionKey(secret), base64ToBytes(envelope.data));
+  return JSON.parse(new TextDecoder().decode(decrypted));
 }
 
 export function downloadSyncPackage(syncPackage: SyncPackage) {
@@ -187,5 +258,5 @@ export function downloadSyncPackage(syncPackage: SyncPackage) {
   anchor.href = url;
   anchor.download = "dunots-sync-" + new Date().toISOString().slice(0, 10) + ".dunots";
   anchor.click();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

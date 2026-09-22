@@ -4,14 +4,20 @@ import { invoke } from "@tauri-apps/api/core";
 import { RetroBadge } from "@/components/ui/RetroBadge";
 import { RetroButton } from "@/components/ui/RetroButton";
 import { RetroCard } from "@/components/ui/RetroCard";
-import { applySyncPackage, createSyncPackage, downloadSyncPackage, getDeviceIdentity, makePairingToken, parseSyncPackage, previewSyncPackage, readLocalSyncData, saveDeviceName, type SyncHostInfo, type SyncIdentity, type SyncPackage, type SyncPreview } from "@core/lib/sync";
+import { applySyncPackage, createSyncPackage, decryptSyncPayload, downloadSyncPackage, encryptSyncPackage, getDeviceIdentity, makePairingToken, parseSyncPackage, previewSyncPackage, readLocalSyncData, saveDeviceName, type ConflictChoice, type SyncHostInfo, type SyncIdentity, type SyncPackage, type SyncPreview, type SyncRecord } from "@core/lib/sync";
 
-function formatDate(value: string) {
-  return new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+function formatDate(value?: string) {
+  return value ? new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "sem data registrada";
 }
 
 function formatHostExpiry(value: number) {
   return new Date(value * 1000).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function describeRecord(record?: SyncRecord) {
+  if (!record) return "registro removido";
+  const value = [record.title, record.name, record.statement, record.question, record.front, record.topic, record.content].find((item) => typeof item === "string" && item.trim());
+  return String(value || record.id).replace(/\s+/g, " ").slice(0, 190);
 }
 
 function SummaryItem({ label, value, tone }: { label: string; value: number; tone: "blue" | "green" | "orange" | "purple" }) {
@@ -22,8 +28,10 @@ export function SyncPage() {
   const [identity, setIdentity] = useState<SyncIdentity>(() => getDeviceIdentity());
   const [packageData, setPackageData] = useState<SyncPackage | null>(null);
   const [preview, setPreview] = useState<SyncPreview | null>(null);
+  const [conflictChoices, setConflictChoices] = useState<Record<string, ConflictChoice>>({});
   const [hostInfo, setHostInfo] = useState<SyncHostInfo | null>(null);
   const [remoteAddress, setRemoteAddress] = useState("");
+  const [remoteSession, setRemoteSession] = useState<{ address: string; token: string } | null>(null);
   const [remoteToken, setRemoteToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [pairingBusy, setPairingBusy] = useState(false);
@@ -42,11 +50,32 @@ export function SyncPage() {
 
   const setIncomingPackage = async (parsed: SyncPackage, name: string) => {
     const local = await readLocalSyncData();
+    const nextPreview = previewSyncPackage(local, parsed);
     setPackageData(parsed);
-    setPreview(previewSyncPackage(local, parsed));
+    setPreview(nextPreview);
+    setConflictChoices(Object.fromEntries(nextPreview.conflictRecords.map((conflict) => [conflict.key, "local"])));
     setFileName(name);
     setApplied(false);
   };
+
+  useEffect(() => {
+    if (!desktop || !hostInfo) return;
+    let cancelled = false;
+    const pollIncoming = async () => {
+      try {
+        const incoming = await invoke<{ payload: string; secret: string } | null>("take_sync_incoming");
+        if (!incoming || cancelled) return;
+        const parsed = parseSyncPackage(await decryptSyncPayload(incoming.payload, incoming.secret));
+        await setIncomingPackage(parsed, "retorno · " + parsed.source.deviceName);
+        if (!cancelled) setMessage("O outro notebook enviou os dados dele. Revise os conflitos antes de aplicar.");
+      } catch (reason) {
+        if (!cancelled) setError(reason instanceof Error ? reason.message : "Não foi possível ler o retorno do outro notebook.");
+      }
+    };
+    void pollIncoming();
+    const timer = window.setInterval(() => void pollIncoming(), 2000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [desktop, hostInfo]);
 
   const handleExport = async () => {
     setBusy(true);
@@ -73,9 +102,11 @@ export function SyncPage() {
     setMessage("");
     try {
       const syncPackage = await createSyncPackage(identity);
-      const info = await invoke<SyncHostInfo>("start_sync_host", { package: JSON.stringify(syncPackage), token: makePairingToken() });
+      const token = makePairingToken();
+      const encrypted = await encryptSyncPackage(syncPackage, token);
+      const info = await invoke<SyncHostInfo>("start_sync_host", { package: encrypted, token });
       setHostInfo(info);
-      setMessage("Compartilhamento iniciado. Informe o endereço e o token ao outro notebook.");
+      setMessage("Compartilhamento iniciado. O token de pareamento será usado uma única vez.");
     } catch {
       setError("Não foi possível iniciar o compartilhamento. Verifique se o firewall permite a rede privada.");
     } finally {
@@ -87,7 +118,7 @@ export function SyncPage() {
     if (!desktop) return;
     await invoke("stop_sync_host");
     setHostInfo(null);
-    setMessage("Compartilhamento encerrado.");
+    setMessage("Compartilhamento encerrado e sessão invalidada.");
   };
 
   const handleCopy = async (value: string) => {
@@ -113,11 +144,32 @@ export function SyncPage() {
       const baseAddress = /^https?:\/\//i.test(address) ? address : "http://" + address;
       const response = await fetch(baseAddress + "/dunots-sync", { headers: { Authorization: "Bearer " + token } });
       if (!response.ok) throw new Error("O endereço ou token não foi aceito.");
-      const parsed = parseSyncPackage(await response.json());
+      const envelope = await response.json() as { package?: string; sessionToken?: string };
+      if (!envelope.package || !envelope.sessionToken) throw new Error("O outro notebook não retornou uma sessão válida.");
+      const parsed = parseSyncPackage(await decryptSyncPayload(envelope.package, token));
       await setIncomingPackage(parsed, "pareamento · " + parsed.source.deviceName);
-      setMessage("Pacote recebido. Revise a prévia antes de aplicar.");
+      setRemoteSession({ address: baseAddress, token: envelope.sessionToken });
+      setMessage("Pacote recebido. Revise a prévia antes de aplicar. Depois, você poderá enviar seus dados de volta uma vez.");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Não foi possível conectar ao outro notebook.");
+    } finally {
+      setPairingBusy(false);
+    }
+  };
+
+  const handleSendBack = async () => {
+    if (!remoteSession) return;
+    setPairingBusy(true);
+    setError("");
+    try {
+      const ownPackage = await createSyncPackage(identity);
+      const encrypted = await encryptSyncPackage(ownPackage, remoteSession.token);
+      const response = await fetch(remoteSession.address + "/dunots-sync", { method: "POST", headers: { Authorization: "Bearer " + remoteSession.token, "Content-Type": "text/plain" }, body: encrypted });
+      if (!response.ok) throw new Error("A sessão de retorno expirou ou já foi usada.");
+      setRemoteSession(null);
+      setMessage("Seus dados foram enviados de volta. O outro notebook verá uma nova prévia para confirmar.");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Não foi possível enviar seus dados de volta.");
     } finally {
       setPairingBusy(false);
     }
@@ -141,16 +193,21 @@ export function SyncPage() {
     }
   };
 
+  const chooseAll = (choice: ConflictChoice) => {
+    if (!preview) return;
+    setConflictChoices(Object.fromEntries(preview.conflictRecords.map((conflict) => [conflict.key, choice])));
+  };
+
   const handleApply = async () => {
     if (!packageData || !preview) return;
     setBusy(true);
     setError("");
     try {
-      await applySyncPackage(packageData);
+      await applySyncPackage(packageData, conflictChoices);
       setApplied(true);
-      setMessage("Mesclagem concluída. Os conflitos foram preservados neste notebook.");
+      setMessage("Mesclagem concluída com as decisões escolhidas para cada conflito.");
     } catch {
-      setError("A mesclagem não pôde ser concluída. Nenhum arquivo foi apagado.");
+      setError("A mesclagem não pôde ser concluída. Nenhum arquivo foi apagado automaticamente.");
     } finally {
       setBusy(false);
     }
@@ -161,20 +218,20 @@ export function SyncPage() {
   return <div className="h-full overflow-y-auto retro-scrollbar paper-page p-5 md:p-8">
     <div className="mx-auto max-w-6xl">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div><p className="text-[13px] font-semibold text-retro-blue">SINCRONIZAÇÃO</p><h1 className="text-3xl font-bold text-retro-text">Leve seus estudos com você</h1><p className="mt-1 max-w-2xl text-retro-comment">Pareie notebooks pela rede local ou transfira um pacote Dunots. Nada é apagado automaticamente.</p></div>
-        <RetroBadge tone="green" icon={<Wifi size={13} />}>local e seguro</RetroBadge>
+        <div><p className="text-[13px] font-semibold text-retro-blue">SINCRONIZAÇÃO</p><h1 className="text-3xl font-bold text-retro-text">Leve seus estudos com você</h1><p className="mt-1 max-w-2xl text-retro-comment">Pareie notebooks pela rede local ou transfira um pacote Dunots. A mesclagem é revisada antes de alterar os dados.</p></div>
+        <RetroBadge tone="green" icon={<ShieldCheck size={13} />}>criptografado e temporário</RetroBadge>
       </div>
 
       <RetroCard accent="purple" className="mt-7" title="Parear pela mesma rede Wi-Fi" icon={<Wifi size={16} />}>
         {!desktop ? <p className="text-[13px] leading-relaxed text-retro-text-dim">O pareamento direto está disponível no executável desktop. Neste navegador, gere e importe um pacote <code>.dunots</code> abaixo.</p> : <div className="grid gap-5 lg:grid-cols-2">
           <div className="space-y-3">
             <h2 className="font-semibold text-retro-text">Notebook que envia</h2>
-            <p className="text-[13px] leading-relaxed text-retro-text-dim">Inicie um compartilhamento temporário e envie o endereço e o token ao outro notebook. O servidor expira em 10 minutos.</p>
-            {!hostInfo ? <RetroButton variant="primary" onClick={() => void handleStartHost()} disabled={pairingBusy} icon={<Wifi size={15} />}>{pairingBusy ? "iniciando..." : "iniciar compartilhamento"}</RetroButton> : <div className="space-y-3 rounded-wobbly border border-retro-green/50 bg-retro-green/10 p-3"><div><p className="text-[11px] uppercase tracking-wider text-retro-comment">endereço</p><code className="mt-1 block break-all text-[13px] text-retro-blue">{hostInfo.address}</code></div><div><p className="text-[11px] uppercase tracking-wider text-retro-comment">token temporário</p><code className="mt-1 block break-all text-[13px] text-retro-blue">{hostInfo.token}</code></div><p className="text-[12px] text-retro-comment">Expira às {formatHostExpiry(hostInfo.expires_at)}.</p><div className="flex flex-wrap gap-2"><RetroButton onClick={() => void handleCopy(hostInvite)} icon={<Copy size={14} />}>copiar convite</RetroButton><RetroButton onClick={() => void handleStopHost()}>encerrar</RetroButton></div></div>}
+            <p className="text-[13px] leading-relaxed text-retro-text-dim">Inicie um compartilhamento temporário. O pacote é criptografado antes de sair do dispositivo, o token inicial expira em 10 minutos e só pode abrir uma sessão.</p>
+            {!hostInfo ? <RetroButton variant="primary" onClick={() => void handleStartHost()} disabled={pairingBusy} icon={<Wifi size={15} />}>{pairingBusy ? "iniciando..." : "iniciar compartilhamento"}</RetroButton> : <div className="space-y-3 rounded-wobbly border border-retro-green/50 bg-retro-green/10 p-3"><div><p className="text-[11px] uppercase tracking-wider text-retro-comment">endereço</p><code className="mt-1 block break-all text-[13px] text-retro-blue">{hostInfo.address}</code></div><div><p className="text-[11px] uppercase tracking-wider text-retro-comment">token de pareamento</p><code className="mt-1 block break-all text-[13px] text-retro-blue">{hostInfo.token}</code></div><p className="text-[12px] text-retro-comment">Expira às {formatHostExpiry(hostInfo.expires_at)}. Após o recebimento, o retorno usa uma sessão diferente e de uso único.</p><div className="flex flex-wrap gap-2"><RetroButton onClick={() => void handleCopy(hostInvite)} icon={<Copy size={14} />}>copiar convite</RetroButton><RetroButton onClick={() => void handleStopHost()}>encerrar</RetroButton></div></div>}
           </div>
           <div className="space-y-3">
             <h2 className="font-semibold text-retro-text">Notebook que recebe</h2>
-            <p className="text-[13px] leading-relaxed text-retro-text-dim">No outro notebook, informe o endereço e o token exibidos pelo dispositivo que está enviando.</p>
+            <p className="text-[13px] leading-relaxed text-retro-text-dim">Informe o endereço e o token exibidos pelo dispositivo que está enviando. O token não é armazenado no pacote.</p>
             <label className="block text-[13px] text-retro-text-dim">Endereço do outro notebook<input value={remoteAddress} onChange={(event) => setRemoteAddress(event.target.value)} className="retro-input mt-1" placeholder="Ex.: http://192.168.0.15:43127" /></label>
             <label className="block text-[13px] text-retro-text-dim">Token<input value={remoteToken} onChange={(event) => setRemoteToken(event.target.value)} className="retro-input mt-1" placeholder="Cole o token temporário" /></label>
             <RetroButton variant="primary" onClick={() => void handleConnect()} disabled={pairingBusy} icon={<Download size={15} />}>{pairingBusy ? "conectando..." : "receber pacote pela rede"}</RetroButton>
@@ -193,7 +250,7 @@ export function SyncPage() {
         <RetroCard accent="green" title="Enviar por arquivo" icon={<Download size={16} />}>
           <div className="space-y-4">
             <p className="text-[14px] leading-relaxed text-retro-text-dim">Gere um pacote com flashcards, desafios, questões, simulados, trilhas, fluxogramas, artigos e snippets. Depois envie o arquivo para o outro notebook por pendrive, rede ou mensageiro.</p>
-            <div className="rounded-wobbly border border-retro-green/40 bg-retro-green/10 p-3 text-[12px] text-retro-text-dim"><ShieldCheck size={15} className="mr-2 inline text-retro-green" />A mesclagem preserva dados locais e só aplica registros novos ou mais recentes.</div>
+            <div className="rounded-wobbly border border-retro-green/40 bg-retro-green/10 p-3 text-[12px] text-retro-text-dim"><ShieldCheck size={15} className="mr-2 inline text-retro-green" />A mesclagem preserva dados locais, reconhece exclusões e pede uma decisão quando os dois notebooks editaram o mesmo ID.</div>
             <RetroButton variant="primary" onClick={() => void handleExport()} disabled={busy} icon={<Download size={15} />}>{busy ? "preparando..." : "gerar pacote .dunots"}</RetroButton>
           </div>
         </RetroCard>
@@ -211,13 +268,14 @@ export function SyncPage() {
           {message && <div className="rounded-wobbly border border-retro-green/50 bg-retro-green/10 p-3 text-[13px] text-retro-green">{message}</div>}
           {packageData && preview && <div className="space-y-4 rounded-wobbly border border-retro-border bg-retro-panel p-4">
             <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold text-retro-text">Prévia da mesclagem</h2><p className="mt-1 text-[12px] text-retro-comment">Origem: {packageData.source.deviceName} · exportado em {formatDate(packageData.exportedAt)} · {totalIncoming} registros</p></div>{sourceIsThisDevice && <RetroBadge tone="orange">mesmo dispositivo</RetroBadge>}</div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4"><SummaryItem label="novos" value={preview.added} tone="blue" /><SummaryItem label="atualizados" value={preview.updated} tone="green" /><SummaryItem label="iguais" value={preview.unchanged} tone="purple" /><SummaryItem label="conflitos preservados" value={preview.conflicts} tone="orange" /></div>
-            {preview.conflicts > 0 && <p className="text-[12px] text-retro-orange">Há registros alterados nos dois notebooks. Eles não serão sobrescritos automaticamente; o conteúdo local será preservado.</p>}
-            {applied ? <div className="flex flex-wrap items-center justify-between gap-3 border-t border-retro-border pt-4"><p className="text-[13px] text-retro-green"><CheckCircle2 size={15} className="mr-1 inline" />Dados mesclados com sucesso.</p><RetroButton variant="primary" onClick={() => window.location.reload()} icon={<RefreshCw size={14} />}>recarregar dados</RetroButton></div> : <div className="flex justify-end border-t border-retro-border pt-4"><RetroButton variant="primary" disabled={busy || (!preview.added && !preview.updated)} onClick={() => void handleApply()} icon={<Upload size={14} />}>{busy ? "mesclando..." : "aplicar mesclagem"}</RetroButton></div>}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5"><SummaryItem label="novos" value={preview.added} tone="blue" /><SummaryItem label="atualizados" value={preview.updated} tone="green" /><SummaryItem label="excluídos" value={preview.deleted} tone="orange" /><SummaryItem label="iguais" value={preview.unchanged} tone="purple" /><SummaryItem label="conflitos" value={preview.conflicts} tone="orange" /></div>
+            {preview.conflictRecords.length > 0 && <div className="space-y-3 border-t border-retro-border pt-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="font-semibold text-retro-text">Conflitos para revisar</h3><p className="text-[12px] text-retro-comment">Cada escolha é aplicada somente ao ID indicado.</p></div><div className="flex flex-wrap gap-2"><RetroButton onClick={() => chooseAll("local")}>manter todos locais</RetroButton><RetroButton onClick={() => chooseAll("incoming")}>usar todas recebidas</RetroButton></div></div>{preview.conflictRecords.map((conflict) => { const choice = conflictChoices[conflict.key] ?? "local"; return <div key={conflict.key} className="rounded-wobbly border border-retro-border bg-retro-panelHover p-3"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-[12px] font-semibold text-retro-blue">{conflict.collection} · {conflict.id}</p><p className="mt-1 text-[13px] text-retro-text">{describeRecord(conflict.incoming)}</p></div><span className="text-[11px] text-retro-comment">{choice === "local" ? "decisão: local" : "decisão: recebida"}</span></div><div className="mt-3 grid gap-3 md:grid-cols-2"><div className={`rounded-wobbly border p-3 ${choice === "local" ? "border-retro-blue bg-retro-blue/10" : "border-retro-border"}`}><p className="text-[11px] uppercase tracking-wider text-retro-comment">versão local · {formatDate(conflict.localUpdatedAt)}</p><p className="mt-1 text-[12px] text-retro-text-dim">{describeRecord(conflict.local)}</p><RetroButton className="mt-2" onClick={() => setConflictChoices((current) => ({ ...current, [conflict.key]: "local" }))}>manter local</RetroButton></div><div className={`rounded-wobbly border p-3 ${choice === "incoming" ? "border-retro-green bg-retro-green/10" : "border-retro-border"}`}><p className="text-[11px] uppercase tracking-wider text-retro-comment">versão recebida · {formatDate(conflict.incomingUpdatedAt)}</p><p className="mt-1 text-[12px] text-retro-text-dim">{describeRecord(conflict.incoming)}</p><RetroButton className="mt-2" onClick={() => setConflictChoices((current) => ({ ...current, [conflict.key]: "incoming" }))}>usar recebida</RetroButton></div></div></div>; })}</div>}
+            {remoteSession && <div className="flex flex-wrap items-center justify-between gap-3 rounded-wobbly border border-retro-blue/40 bg-retro-blue/10 p-3"><p className="text-[12px] text-retro-text-dim">A sessão de retorno está pronta. Você pode enviar o estado deste notebook para o dispositivo que iniciou o pareamento.</p><RetroButton onClick={() => void handleSendBack()} disabled={pairingBusy} icon={<Upload size={14} />}>{pairingBusy ? "enviando..." : "enviar meus dados de volta"}</RetroButton></div>}
+            {applied ? <div className="flex flex-wrap items-center justify-between gap-3 border-t border-retro-border pt-4"><p className="text-[13px] text-retro-green"><CheckCircle2 size={15} className="mr-1 inline" />Dados mesclados com sucesso.</p><RetroButton variant="primary" onClick={() => window.location.reload()} icon={<RefreshCw size={14} />}>recarregar dados</RetroButton></div> : <div className="flex justify-end border-t border-retro-border pt-4"><RetroButton variant="primary" disabled={busy || (!preview.added && !preview.updated && !preview.deleted && !preview.conflicts)} onClick={() => void handleApply()} icon={<Upload size={14} />}>{busy ? "mesclando..." : "aplicar mesclagem"}</RetroButton></div>}
           </div>}
         </div>
       </RetroCard>
-      <p className="mt-5 text-[12px] text-retro-comment">O pareamento dura 10 minutos e usa um token temporário. Próximas versões podem adicionar sincronização automática e resolução manual de conflitos.</p>
+      <p className="mt-5 text-[12px] text-retro-comment">O pareamento expira em 10 minutos, usa AES-GCM no payload, token inicial de uso único e sessão de retorno de uso único. As duas pontas precisam confirmar a mesclagem manualmente.</p>
     </div>
   </div>;
 }
