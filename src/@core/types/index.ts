@@ -6,8 +6,7 @@ export type PageId =
   | "snippets"
   | "diagrams"
   | "quizzes"
-  | "roadmaps"
-  | "sync";
+  | "roadmaps";
 
 export interface SyncTombstone {
   id: string;

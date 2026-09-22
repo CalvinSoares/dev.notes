@@ -47,7 +47,6 @@ const PAGE_META: Record<PageId, { title: string; iconName: string }> = {
   diagrams: { title: 'diagrams.flow', iconName: 'GitBranch' },
   quizzes: { title: 'simulados.provas', iconName: 'ClipboardCheck' },
   roadmaps: { title: 'roadmaps.estudos', iconName: 'Route' },
-  sync: { title: 'sync.dispositivos', iconName: 'RefreshCw' },
 };
 
 export const useAppStore = create<AppState>((set, get) => ({

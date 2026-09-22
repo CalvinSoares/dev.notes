@@ -14,7 +14,6 @@ import { FileQuestion, PencilLine, Sparkles } from 'lucide-react';
 import { DiagramsPage } from '@/pages/DiagramsPage';
 import { QuizPage } from '@/pages/QuizPage';
 import { RoadmapsPage } from '@/pages/RoadmapsPage';
-import { SyncPage } from '@/pages/SyncPage';
 import type { PageId } from '@core/types';
 
 const PAGE_REGISTRY: Partial<Record<PageId, () => JSX.Element>> = {
@@ -24,7 +23,6 @@ const PAGE_REGISTRY: Partial<Record<PageId, () => JSX.Element>> = {
   diagrams: DiagramsPage,
   quizzes: QuizPage,
   roadmaps: RoadmapsPage,
-  sync: SyncPage,
 };
 
 function FallbackPage({ pageId }: { pageId: PageId }) {
