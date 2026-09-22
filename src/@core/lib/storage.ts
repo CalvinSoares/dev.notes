@@ -1,7 +1,8 @@
 import Database from "@tauri-apps/plugin-sql";
 import { db, seedIfEmpty as seedBrowser, SEED_ARTICLES, SEED_FLASHCARDS, SEED_LEETCODE, SEED_SNIPPETS } from "@core/lib/db";
+import type { SyncTombstone } from "@core/types";
 
-type Collection = "flashcards" | "leetcode_problems" | "articles" | "snippets" | "study_phases" | "diagrams" | "quiz_exams" | "quiz_questions" | "quiz_attempts" | "study_roadmaps" | "roadmap_nodes" | "roadmap_links";
+export type Collection = "flashcards" | "leetcode_problems" | "articles" | "snippets" | "study_phases" | "diagrams" | "quiz_exams" | "quiz_questions" | "quiz_attempts" | "study_roadmaps" | "roadmap_nodes" | "roadmap_links" | "sync_tombstones";
 const isDesktop = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 let sqlitePromise: ReturnType<typeof Database.load> | null = null;
 let quizMigrationPromise: Promise<void> | null = null;
@@ -72,6 +73,7 @@ export const storage = {
       if (collection === "study_roadmaps") return db.study_roadmaps.orderBy("updatedAt").reverse().toArray() as unknown as T[];
       if (collection === "roadmap_nodes") return db.roadmap_nodes.orderBy("updatedAt").reverse().toArray() as unknown as T[];
       if (collection === "roadmap_links") return db.roadmap_links.toArray().then((items) => items.sort((left, right) => left.createdAt.localeCompare(right.createdAt))) as unknown as T[];
+      if (collection === "sync_tombstones") return db.sync_tombstones.toArray() as unknown as T[];
       return db.quiz_attempts.orderBy("startedAt").reverse().toArray() as unknown as T[];
     }
     const database = await sqlite();
@@ -91,6 +93,7 @@ export const storage = {
       if (collection === "study_roadmaps") return db.study_roadmaps.put(item as never);
       if (collection === "roadmap_nodes") return db.roadmap_nodes.put(item as never);
       if (collection === "roadmap_links") return db.roadmap_links.put(item as never);
+      if (collection === "sync_tombstones") return db.sync_tombstones.put(item as never);
       return db.quiz_attempts.put(item as never);
     }
     const database = await sqlite();
@@ -100,6 +103,11 @@ export const storage = {
     for (const item of items) await this.put(collection, item);
   },
   async remove(collection: Collection, id: string) {
+    if (collection !== "sync_tombstones") {
+      const deletedAt = new Date().toISOString();
+      const tombstone: SyncTombstone = { id: collection + ":" + id, collection, recordId: id, deletedAt, updatedAt: deletedAt };
+      await this.put("sync_tombstones", tombstone);
+    }
     if (!isDesktop()) {
       if (collection === "flashcards") return db.flashcards.delete(id);
       if (collection === "leetcode_problems") return db.leetcode_problems.delete(id);
@@ -112,6 +120,7 @@ export const storage = {
       if (collection === "study_roadmaps") return db.study_roadmaps.delete(id);
       if (collection === "roadmap_nodes") return db.roadmap_nodes.delete(id);
       if (collection === "roadmap_links") return db.roadmap_links.delete(id);
+      if (collection === "sync_tombstones") return db.sync_tombstones.delete(id);
       return db.quiz_attempts.delete(id);
     }
     const database = await sqlite();

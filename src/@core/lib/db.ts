@@ -1,5 +1,5 @@
 import Dexie, { type Table } from "dexie";
-import type { Flashcard, LeetCodeProblem, Article, Snippet, StudyPhase, StudyDiagram, QuizAttempt, QuizQuestion, QuizExam } from "@core/types";
+import type { Flashcard, LeetCodeProblem, Article, Snippet, StudyPhase, StudyDiagram, QuizAttempt, QuizQuestion, QuizExam, SyncTombstone } from "@core/types";
 import type { StudyRoadmap, StudyRoadmapNode, StudyRoadmapLink } from "@core/types/roadmap";
 import { subDays, addDays } from "date-fns";
 
@@ -460,6 +460,7 @@ class RetroCodeDexie extends Dexie {
   study_roadmaps!: Table<StudyRoadmap, string>;
   roadmap_nodes!: Table<StudyRoadmapNode, string>;
   roadmap_links!: Table<StudyRoadmapLink, string>;
+  sync_tombstones!: Table<SyncTombstone, string>;
 
   constructor() {
     super("retrocode-study-db");
@@ -490,7 +491,8 @@ class RetroCodeDexie extends Dexie {
       snippets: "id, language, createdAt",
       study_phases: "id, updatedAt",
       diagrams: "id, updatedAt",
-    });    this.version(5).stores({
+    });
+    this.version(5).stores({
       flashcards: "id, nextReviewAt, repetitions, interval",
       leetcode_problems: "id, problemId, difficulty, nextReviewAt",
       articles: "id, nextReviewAt",
@@ -525,6 +527,22 @@ class RetroCodeDexie extends Dexie {
       roadmap_nodes: "id, roadmapId, parentId, updatedAt",
       roadmap_links: "id, nodeId, resourceType, resourceId",
     });
+    this.version(8).stores({
+      flashcards: "id, nextReviewAt, repetitions, interval",
+      leetcode_problems: "id, problemId, difficulty, nextReviewAt",
+      articles: "id, nextReviewAt",
+      snippets: "id, language, createdAt",
+      study_phases: "id, updatedAt",
+      diagrams: "id, updatedAt",
+      quiz_exams: "id, contestName, vacancy, updatedAt",
+      quiz_questions: "id, examId, examName, subject, topic, updatedAt",
+      quiz_attempts: "id, startedAt, finishedAt",
+      study_roadmaps: "id, status, updatedAt",
+      roadmap_nodes: "id, roadmapId, parentId, updatedAt",
+      roadmap_links: "id, nodeId, resourceType, resourceId",
+      sync_tombstones: "id, collection, recordId, deletedAt"
+    });
+
   }
 }
 

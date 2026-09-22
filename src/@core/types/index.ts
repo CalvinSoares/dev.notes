@@ -9,6 +9,14 @@ export type PageId =
   | "roadmaps"
   | "sync";
 
+export interface SyncTombstone {
+  id: string;
+  collection: string;
+  recordId: string;
+  deletedAt: string;
+  updatedAt: string;
+}
+
 export interface Tab {
   id: string;
   pageId: PageId;
