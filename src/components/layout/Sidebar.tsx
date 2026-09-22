@@ -5,6 +5,7 @@ import {
   GitBranch,
   ClipboardCheck,
   Route,
+  RefreshCw,
   X,
   PencilLine,
   Sparkles,
@@ -32,6 +33,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'nav-diagrams', pageId: 'diagrams', label: 'Fluxogramas', note: 'pensamento visual', icon: GitBranch },
   { id: 'nav-quizzes', pageId: 'quizzes', label: 'Simulados', note: 'provas e questões', icon: ClipboardCheck },
   { id: 'nav-roadmaps', pageId: 'roadmaps', label: 'Roadmaps', note: 'trilhas de estudo', icon: Route },
+  { id: 'nav-sync', pageId: 'sync', label: 'Sincronização', note: 'outros dispositivos', icon: RefreshCw },
 ];
 
 export function Sidebar() {

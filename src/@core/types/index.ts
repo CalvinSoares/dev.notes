@@ -6,7 +6,8 @@ export type PageId =
   | "snippets"
   | "diagrams"
   | "quizzes"
-  | "roadmaps";
+  | "roadmaps"
+  | "sync";
 
 export interface Tab {
   id: string;
