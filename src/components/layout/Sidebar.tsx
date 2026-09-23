@@ -7,7 +7,6 @@ import {
   Route,
   X,
   PencilLine,
-  Sparkles,
   PanelLeftClose,
   PanelLeftOpen,
   type LucideIcon,
@@ -119,7 +118,6 @@ export function Sidebar() {
 
         {!sidebarCollapsed && <div className="m-4 mt-0 p-3 bg-retro-panelHover border-2 border-retro-border rotate-[-1deg] shadow-paper">
           <div className="flex items-start gap-2">
-            <Sparkles size={17} className="text-retro-orange shrink-0 mt-0.5" />
             <div>
               <p className="font-display font-bold text-[15px]">Lembrete de hoje</p>
               <p className="text-[13px] text-retro-text-dim leading-tight mt-1">
